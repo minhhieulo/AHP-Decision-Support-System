@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Hỗ Trợ Ra Quyết Định Mua Đồ Điện tử Trong Nhà Bếp - AHP</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" type="image/svg+xml">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-lg sticky-top">
+        <div class="container-fluid container-max-width">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="AHP Logo" class="navbar-logo me-2">
+                <span class="fw-bold text-white">Hỗ Trợ Ra Quyết Định AHP</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Chuyển đổi điều hướng">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#" data-section="criteria-evaluation">
+                            <i class="bi bi-list-nested me-2"></i> Đánh giá Tiêu chí
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="brand-comparison">
+                            <i class="bi bi-grid me-2"></i> So sánh Thương hiệu
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="results-charts">
+                            <i class="bi bi-bar-chart-line me-2"></i> Kết quả & Biểu đồ
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="history-log">
+                            <i class="bi bi-clock-history me-2"></i> Lịch sử
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div id="main-content" class="p-4">
+        <div class="container-fluid container-max-width">
+            <h1 class="text-center mb-4 display-5 fw-bold text-dark-blue">Hệ Thống Hỗ Trợ Ra Quyết Định Mua Đồ Điện Tử</h1>
+            <p class="text-center lead text-muted mb-5">Áp dụng phương pháp AHP để lựa chọn thương hiệu đồ điện tử nhà bếp phù hợp nhất với nhu cầu cá nhân của bạn.</p>
+
+            <div id="criteria-evaluation" class="section-content active">
+                <div class="card shadow-lg mb-5">
+                    <div class="card-header bg-primary text-white p-3 rounded-top-2">
+                        <h2 class="h4 mb-0"><i class="bi bi-funnel me-2"></i> 1. Đánh giá mức độ quan trọng của các tiêu chí</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <p class="mb-4 text-secondary">Vui lòng so sánh mức độ quan trọng giữa các tiêu chí bằng cách chọn giá trị từ 1 đến 9 theo thang đo AHP, trong đó:</p>
+                        <div class="ahp-scale-explanation mb-4 text-muted small">
+                            <div class="ahp-scale-item"><strong>1:</strong> Bằng nhau</div>
+                            <div class="ahp-scale-item"><strong>3:</strong> Hơi quan trọng</div>
+                            <div class="ahp-scale-item"><strong>5:</strong> Rất quan trọng</div>
+                            <div class="ahp-scale-item"><strong>7:</strong> Rất rất quan trọng</div>
+                            <div class="ahp-scale-item"><strong>9:</strong> Cực kỳ quan trọng</div>
+                            <div class="ahp-scale-item">Các giá trị chẵn (2,4,6,8) là giá trị trung gian.</div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered ahp-table table-hover" id="criteriaTable">
+                                <thead>
+                                    <tr class="table-info">
+                                        <th>Tiêu chí</th>
+                                        {% for criterion in criteria %}
+                                        <th>{{ criterion }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for i in range(criteria|length) %}
+                                    <tr>
+                                        <td class="fw-bold align-middle">{{ criteria[i] }}</td>
+                                        {% for j in range(criteria|length) %}
+                                        <td>
+                                            <input type="number" min="1" max="9" step="1" value="{% if i == j %}1{% else %}1{% endif %}"
+                                                   class="form-control form-control-sm ahp-input" data-row="{{ i }}" data-col="{{ j }}"
+                                                   {% if i >= j %}disabled{% endif %}>
+                                        </td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-center gap-2 mt-4">
+                            <button id="checkCriteriaConsistencyBtn" class="btn btn-primary btn-lg custom-btn-primary">
+                                <i class="bi bi-check-circle me-2"></i> Kiểm tra nhất quán tiêu chí
+                            </button>
+                            <label for="importCriteriaFile" class="btn btn-secondary btn-lg custom-btn-secondary">
+                                <i class="bi bi-upload me-2"></i> Nhập từ File
+                                <input type="file" id="importCriteriaFile" accept=".xlsx,.xls,.csv" style="display: none;">
+                            </label>
+                        </div>
+                        <div id="criteriaConsistencyResult" class="mt-4 text-center"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="brand-comparison" class="section-content">
+                <div id="brandComparisonSection" class="disabled-overlay">
+                    <div class="card shadow-lg mb-5">
+                        <div class="card-header bg-info text-white p-3 rounded-top-2">
+                            <h2 class="h4 mb-0"><i class="bi bi-boxes me-2"></i> 2. So sánh các thương hiệu theo từng tiêu chí</h2>
+                        </div>
+                        <div class="card-body p-4">
+                            <p class="mb-4 text-secondary">Chọn một tiêu chí dưới đây để đánh giá các thương hiệu dựa trên tiêu chí đó. Sử dụng cùng thang điểm 1-9 AHP:</p>
+                            <div id="criterionButtons" class="d-flex flex-wrap justify-content-center gap-3 mb-5">
+                                {% for criterion in criteria %}
+                                <button type="button" class="btn btn-outline-info criterion-select-btn flex-grow-1" data-criterion-index="{{ loop.index0 }}" disabled>
+                                    <i class="bi bi-tag me-2"></i> {{ criterion }}
+                                </button>
+                                {% endfor %}
+                            </div>
+
+                            <div id="brandComparisonTablesContainer">
+                                {% for criterion in criteria %}
+                                <div class="brand-comparison-table-wrapper mb-4" id="brandTableWrapper_{{ loop.index0 }}" style="display: none;">
+                                    <h4 class="text-center mb-3 text-dark-blue">So sánh thương hiệu theo tiêu chí: "<strong>{{ criterion }}</strong>"</h4>
+                                    <div class="d-flex justify-content-center gap-2 mb-3">
+                                        <label for="importBrandFile_{{ loop.index0 }}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-upload me-2"></i> Nhập ma trận này từ File
+                                            <input type="file" id="importBrandFile_{{ loop.index0 }}" accept=".xlsx,.xls,.csv" style="display: none;" data-criterion-index="{{ loop.index0 }}">
+                                        </label>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered ahp-table table-hover" id="brandTable_{{ loop.index0 }}">
+                                            <thead>
+                                                <tr class="table-warning">
+                                                    <th>Thương hiệu</th>
+                                                    {% for brand in brands %}
+                                                    <th>{{ brand }}</th>
+                                                    {% endfor %}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for i in range(brands|length) %}
+                                                <tr>
+                                                    <td class="fw-bold align-middle">{{ brands[i] }}</td>
+                                                    {% for j in range(brands|length) %}
+                                                    <td>
+                                                        <input type="number" min="1" max="9" step="1" value="{% if i == j %}1{% else %}1{% endif %}"
+                                                               class="form-control form-control-sm ahp-input" data-row="{{ i }}" data-col="{{ j }}"
+                                                               data-criterion="{{ criterion }}"
+                                                               disabled>
+                                                    </td>
+                                                    {% endfor %}
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="d-flex justify-content-center mt-4">
+                                <button id="calculateBtn" class="btn btn-success btn-lg w-75 custom-btn-success" disabled>
+                                    <i class="bi bi-calculator me-2"></i> Tính toán và Đưa ra Khuyến nghị
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results-charts" class="section-content">
+                <div id="results" class="card shadow-lg mb-5">
+                    <div class="card-header bg-success text-white p-3 rounded-top-2">
+                        <h2 class="h4 mb-0"><i class="bi bi-bar-chart-line me-2"></i> 3. Kết quả đánh giá và Khuyến nghị</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <h3 class="mt-3 text-dark-blue">Trọng số các tiêu chí:</h3>
+                        <ul id="criteriaWeightsList" class="list-group list-group-flush mb-4"></ul>
+                        <p class="text-muted small">Tỷ lệ nhất quán (CR): <span id="criteriaCR" class="fw-bold"></span> (<span id="criteriaConsistencyMessage"></span>)</p>
+                        
+                        <div class="chart-container shadow-sm p-3 mb-5 bg-white rounded-3" style="display: none;">
+                            <canvas id="criteriaChart"></canvas>
+                        </div>
+
+                        <h3 class="mt-4 text-dark-blue">Biểu đồ tròn trọng số tiêu chí:</h3>
+                        <div class="chart-container shadow-sm p-3 mb-5 bg-white rounded-3">
+                            <canvas id="criteriaPieChart"></canvas>
+                        </div>
+
+                        <h3 class="mt-4 text-dark-blue">Điểm số tổng hợp các thương hiệu:</h3>
+                        <ul id="brandScoresList" class="list-group list-group-flush mb-4"></ul>
+                        <div class="chart-container shadow-sm p-3 mb-5 bg-white rounded-3">
+                            <canvas id="brandsChart"></canvas>
+                        </div>
+
+                        <h3 class="mt-4 text-primary text-center">Khuyến nghị tối ưu: <strong id="bestBrand" class="display-6"></strong></h3>
+                        <p class="text-center text-muted small">Đây là thương hiệu được đánh giá cao nhất dựa trên các tiêu chí và mức độ ưu tiên của bạn.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="history-log" class="section-content">
+                <div class="card shadow-lg mb-5">
+                    <div class="card-header bg-secondary text-white p-3 rounded-top-2">
+                        <h2 class="h4 mb-0"><i class="bi bi-clock-history me-2"></i> 4. Lịch sử các lần tính toán</h2>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <button id="loadHistoryBtn" class="btn btn-info custom-btn-info">
+                                <i class="bi bi-arrow-clockwise me-2"></i> Tải lịch sử
+                            </button>
+                            <button id="clearHistoryBtn" class="btn btn-danger custom-btn-danger">
+                                <i class="bi bi-trash me-2"></i> Xóa lịch sử
+                            </button>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mb-4">
+                            <button id="exportExcelBtn" class="btn btn-success custom-btn-success">
+                                <i class="bi bi-file-earmark-excel me-2"></i> Xuất Excel
+                            </button>
+                            <button id="exportPdfBtn" class="btn btn-danger custom-btn-danger">
+                                <i class="bi bi-file-earmark-pdf me-2"></i> Xuất PDF
+                            </button>
+                        </div>
+                        <div id="historyListContainer" class="list-group">
+                            <p class="text-muted text-center" id="noHistoryMessage">Chưa có lịch sử tính toán nào.</p>
+                        </div>
+                        <nav aria-label="Phân trang lịch sử" class="mt-4">
+                            <ul class="pagination justify-content-center" id="historyPagination"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+
+        </div> </div> <footer class="footer bg-dark text-white-50 py-3 text-center">
+        <div class="container container-max-width">
+            <p class="mb-1">&copy; 2024 Hỗ Trợ Ra Quyết Định AHP. Bảo lưu mọi quyền.</p>
+            <p class="mb-0">Đề tài áp dụng phương pháp AHP của Nhóm 23.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="{{ url_for('config_js') }}"></script>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
