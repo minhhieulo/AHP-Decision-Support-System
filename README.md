@@ -1,38 +1,59 @@
 # 📊 Hệ Thống Hỗ Trợ Ra Quyết Định AHP
 
-Đây là một ứng dụng web mạnh mẽ được xây dựng bằng Flask (Python) và sử dụng phương pháp Phân tích Thứ bậc (Analytical Hierarchy Process - AHP) để hỗ trợ quá trình ra quyết định đa tiêu chí. Ứng dụng cung cấp một giao diện trực quan cho phép người dùng định nghĩa, quản lý, và so sánh các tiêu chí và phương án một cách linh hoạt, sau đó tính toán trọng số ưu tiên và đưa ra khuyến nghị rõ ràng.
+[![Python](https://img.shields.io/badge/Python-3.x-blue?style=for-the-badge&logo=python)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-Framework-black?style=for-the-badge&logo=flask)](https://flask.palletsprojects.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
+[![Bootstrap](https://img.shields.io/badge/Bootstrap-5.x-7952B3?style=for-the-badge&logo=bootstrap)](https://getbootstrap.com/)
+[![Chart.js](https://img.shields.io/badge/Chart.js-Charts-FF6384?style=for-the-badge&logo=chart.js)](https://www.chartjs.org/)
 
-## 🌟 Các Tính Năng Nổi Bật
+---
 
-* **Quản lý động Tiêu chí & Phương án:** Dễ dàng thêm, sửa, xóa các tiêu chí và phương án trực tiếp thông qua giao diện người dùng. Hỗ trợ yêu cầu tối thiểu 3 lựa chọn cho mỗi loại để đảm bảo tính toán AHP hợp lệ.
-* **Ma trận so sánh cặp:** Cung cấp các biểu mẫu trực quan để người dùng nhập giá trị so sánh cặp cho tiêu chí và các phương án dựa trên từng tiêu chí cụ thể.
-* **Kiểm tra nhất quán (Consistency Ratio - CR):** Tự động tính toán và hiển thị tỷ lệ nhất quán của các ma trận so sánh, giúp người dùng đánh giá độ tin cậy của các đánh giá. Cảnh báo và yêu cầu điều chỉnh nếu ma trận không nhất quán (CR >= 0.1).
-* **Tính toán trọng số:** Sử dụng thuật toán AHP để tính toán trọng số ưu tiên của các tiêu chí và điểm số tổng hợp cuối cùng của các phương án.
-* **Khuyến nghị thông minh:** Đưa ra khuyến nghị về phương án tốt nhất dựa trên điểm số tổng hợp đã tính toán.
-* **Biểu đồ trực quan:** Trình bày kết quả tính toán (trọng số tiêu chí, điểm số phương án) dưới dạng biểu đồ Pie và Bar Chart sinh động, giúp người dùng dễ dàng hình dung và phân tích.
-* **Lịch sử tính toán:** Lưu trữ toàn bộ lịch sử các lần tính toán vào cơ sở dữ liệu MongoDB, cho phép người dùng xem lại chi tiết bất kỳ kết quả nào đã lưu.
-* **Xuất dữ liệu linh hoạt:** Hỗ trợ xuất kết quả tính toán tổng hợp sang file Excel (`.xlsx`) hoặc PDF (`.pdf`) để lưu trữ, báo cáo hoặc chia sẻ.
-* **Nhập dữ liệu từ Excel:** Cho phép nhập trực tiếp ma trận so sánh từ file Excel, giúp tăng tốc độ nhập liệu cho các tập dữ liệu lớn.
+Hệ thống này là một ứng dụng web mạnh mẽ, được xây dựng dựa trên phương pháp Phân tích Thứ bậc (Analytical Hierarchy Process - AHP) để hỗ trợ quá trình ra quyết định đa tiêu chí. Ứng dụng cung cấp một giao diện người dùng trực quan, cho phép bạn định nghĩa, quản lý và so sánh các tiêu chí cũng như phương án một cách linh hoạt, từ đó tính toán trọng số ưu tiên và đưa ra các khuyến nghị rõ ràng.
 
-## 🛠️ Yêu Cầu Hệ Thống
+## ✨ Các Tính Năng Chính
+
+* **Quản lý linh hoạt Tiêu chí & Phương án:**
+    * Thêm, sửa, xóa các tiêu chí và phương án (ví dụ: thương hiệu) trực tiếp trên giao diện.
+    * Yêu cầu tối thiểu **3 lựa chọn** cho mỗi loại để đảm bảo tính toán AHP hợp lệ.
+* **Ma trận so sánh cặp trực quan:**
+    * Giao diện thân thiện để bạn nhập giá trị so sánh cặp cho các tiêu chí và giữa các phương án dựa trên từng tiêu chí cụ thể.
+* **Kiểm tra nhất quán (Consistency Ratio - CR) tự động:**
+    * Tính toán và hiển thị tỷ lệ nhất quán của các ma trận so sánh.
+    * Đảm bảo độ tin cậy của đánh giá: hệ thống cảnh báo và yêu cầu điều chỉnh nếu ma trận không nhất quán (CR ≥ 0.1).
+* **Tính toán trọng số ưu tiên:**
+    * Áp dụng thuật toán AHP để xác định trọng số ưu tiên của từng tiêu chí và tổng hợp điểm số cuối cùng cho các phương án.
+* **Đề xuất khuyến nghị thông minh:**
+    * Tự động đề xuất phương án tối ưu dựa trên điểm số tổng hợp.
+* **Trực quan hóa dữ liệu mạnh mẽ:**
+    * Trình bày trọng số tiêu chí và điểm số phương án bằng biểu đồ **Pie Chart** và **Bar Chart** sinh động, giúp bạn dễ dàng phân tích và đưa ra quyết định.
+* **Lịch sử tính toán:**
+    * Lưu trữ toàn bộ lịch sử các phiên tính toán vào cơ sở dữ liệu MongoDB, cho phép bạn xem lại chi tiết bất kỳ kết quả đã lưu trữ nào.
+* **Xuất nhập dữ liệu tiện lợi:**
+    * **Xuất:** Kết quả tính toán tổng hợp có thể được xuất sang file **Excel (.xlsx)** hoặc **PDF (.pdf)** để báo cáo hoặc chia sẻ.
+    * **Nhập:** Hỗ trợ nhập ma trận so sánh trực tiếp từ file Excel, giúp tiết kiệm thời gian nhập liệu cho các tập dữ liệu lớn.
+
+## 🚀 Bắt Đầu Nhanh
+
+### 🛠️ Yêu Cầu Hệ Thống
 
 Để chạy ứng dụng này, bạn cần cài đặt các thành phần sau trên máy tính của mình:
 
-* **Python 3.7+** (Khuyến nghị phiên bản mới nhất)
-* **pip** (Trình quản lý gói của Python - thường đi kèm với Python)
-* **MongoDB Community Server** (Cơ sở dữ liệu NoSQL)
+* **[Python 3.7+](https://www.python.org/downloads/)** (Khuyến nghị phiên bản mới nhất)
+* **[pip](https://pip.pypa.io/en/stable/installation/)** (Trình quản lý gói của Python - thường đi kèm với Python)
+* **[MongoDB Community Server](https://www.mongodb.com/try/download/community)** (Cơ sở dữ liệu NoSQL)
 
-## 📦 Hướng Dẫn Cài Đặt Chi Tiết
+### 📦 Hướng Dẫn Cài Đặt Chi Tiết
 
-### Bước 1: Clone Repository (Tải Mã Nguồn)
+#### Bước 1: Tải Mã Nguồn (Clone Repository)
 
-Nếu bạn chưa có mã nguồn, hãy clone repository này về máy tính của bạn. Mở Terminal (hoặc Command Prompt/Git Bash trên Windows) và chạy lệnh:
+Mở Terminal (hoặc Command Prompt/Git Bash trên Windows), điều hướng đến thư mục bạn muốn lưu trữ dự án và chạy lệnh sau:
 
 ```bash
-git clone <địa_chỉ_repo_của_bạn>
-cd <tên_thư_mục_repo> # Ví dụ: cd AHP-Decision-Support-System
-Bước 2: Cài Đặt Môi Trường Python
-Để quản lý các thư viện Python một cách độc lập cho dự án, bạn nên sử dụng một môi trường ảo (virtual environment).
+# Thay thế <YOUR_REPO_URL> bằng URL repository GitHub của bạn
+git clone <YOUR_REPO_URL>
+cd <your-repo-name> # Ví dụ: cd AHP-Decision-Support-System
+Bước 2: Thiết Lập Môi Trường Python
+Để quản lý các thư viện Python độc lập cho dự án, bạn nên sử dụng một môi trường ảo (virtual environment).
 
 Tạo môi trường ảo:
 
@@ -45,7 +66,7 @@ Trên Windows:
 Bash
 
 .\venv\Scripts\activate
-Trên macOS/Linux:
+Trên macOS / Linux:
 Bash
 
 source venv/bin/activate
@@ -57,7 +78,7 @@ Cài đặt các thư viện cần thiết:
 Bash
 
 pip install -r requirements.txt
-Nếu bạn không có file requirements.txt, bạn có thể tạo nó bằng cách cài đặt thủ công các thư viện sau và sau đó chạy pip freeze > requirements.txt:
+Nếu bạn không có file requirements.txt, hãy tạo nó bằng cách cài đặt thủ công các thư viện sau và sau đó chạy pip freeze > requirements.txt:
 
 Flask
 pymongo
@@ -67,32 +88,25 @@ openpyxl
 xlsxwriter
 reportlab
 Flask-PyMongo
-Flask-Cors (Nếu bạn sử dụng CORS)
+Flask-Cors (Nếu cần cho môi trường phát triển)
+python-dotenv (Nếu bạn dùng để quản lý biến môi trường)
 Bước 3: Cài Đặt và Khởi Chạy MongoDB
-Ứng dụng này sử dụng MongoDB để lưu trữ dữ liệu về tiêu chí, phương án và lịch sử tính toán.
+Ứng dụng này sử dụng MongoDB để lưu trữ dữ liệu.
 
-Tải xuống MongoDB Community Server:
-Truy cập trang tải xuống chính thức của MongoDB: https://www.mongodb.com/try/download/community
-Chọn phiên bản và hệ điều hành phù hợp, sau đó tải xuống và cài đặt.
+Tải xuống và cài đặt MongoDB Community Server từ trang web chính thức.
+Tạo thư mục dữ liệu cho MongoDB: MongoDB cần một thư mục để lưu trữ dữ liệu. Theo mặc định, nó sử dụng C:\data\db trên Windows hoặc /data/db trên Linux/macOS. Bạn cần tạo thư mục này nếu nó chưa tồn tại:
+Trên Windows (chạy Command Prompt với quyền quản trị viên):
+DOS
 
-Tạo thư mục dữ liệu cho MongoDB:
-MongoDB cần một thư mục để lưu trữ dữ liệu. Theo mặc định, nó sử dụng C:\data\db trên Windows hoặc /data/db trên Linux/macOS. Bạn cần tạo thư mục này nếu nó chưa tồn tại:
-
-Trên Windows (trong Command Prompt với quyền Admin):
-Bash
-
-mkdir C:\data\db
-Trên macOS/Linux (trong Terminal):
+md "C:\data\db"
+Trên macOS / Linux (trong Terminal):
 Bash
 
 sudo mkdir -p /data/db
 sudo chown -R `id -un` /data/db
-Nếu bạn muốn sử dụng một đường dẫn khác, hãy nhớ ghi lại đường dẫn đó.
-
-Khởi động MongoDB Server (mongod):
-Mở một cửa sổ Terminal hoặc Command Prompt/PowerShell mới (không phải cửa sổ đang chạy môi trường ảo của bạn) và chạy lệnh mongod.
-
-Nếu bạn đã tạo thư mục dữ liệu mặc định (C:\data\db hoặc /data/db):
+Nếu bạn muốn lưu trữ dữ liệu ở một vị trí khác, hãy ghi nhớ đường dẫn đó.
+Khởi động MongoDB Server (mongod): Mở một cửa sổ Terminal hoặc Command Prompt/PowerShell mới (không phải cửa sổ đang chạy môi trường ảo của bạn) và chạy lệnh mongod.
+Nếu bạn đã tạo thư mục dữ liệu mặc định:
 Bash
 
 mongod
@@ -100,17 +114,14 @@ Nếu bạn sử dụng đường dẫn khác (ví dụ: D:\mongodb_data):
 Bash
 
 mongod --dbpath D:\mongodb_data
-Để MongoDB chạy ổn định, bạn nên cân nhắc thiết lập nó như một dịch vụ nền (background service) trên hệ điều hành của mình. Tham khảo tài liệu MongoDB chính thức để biết hướng dẫn chi tiết.
+Để MongoDB chạy ổn định trong nền, bạn nên cân nhắc thiết lập nó như một dịch vụ hệ thống. Tham khảo tài liệu MongoDB chính thức để biết hướng dẫn chi tiết.
+Kiểm tra cấu hình MongoDB trong app.py: Ứng dụng sẽ cố gắng kết nối đến MongoDB trên localhost tại cổng 27017 (cổng mặc định). Nếu MongoDB của bạn chạy trên một địa chỉ hoặc cổng khác, bạn cần chỉnh sửa biến app.config["MONGO_URI"] trong file app.py của bạn.
+▶️ Chạy Ứng Dụng
+Sau khi hoàn tất các bước cài đặt và đảm bảo MongoDB đang chạy:
 
-Xác nhận kết nối MongoDB:
-Ứng dụng của bạn sẽ cố gắng kết nối đến MongoDB trên localhost tại cổng 27017 (cổng mặc định). Nếu MongoDB của bạn chạy trên một địa chỉ hoặc cổng khác, bạn cần chỉnh sửa biến MONGO_URI trong file app.py của bạn.
+Đảm bảo môi trường ảo đã được kích hoạt (kiểm tra (venv) ở đầu dòng lệnh).
 
-▶️ Cách Chạy Ứng Dụng
-Sau khi hoàn thành các bước cài đặt và đảm bảo MongoDB đang chạy:
-
-Đảm bảo môi trường ảo đã được kích hoạt (xem Bước 2.2).
-
-Đảm bảo MongoDB Server đang chạy (xem Bước 3.3).
+Đảm bảo MongoDB Server đang chạy (mở cửa sổ mongod riêng).
 
 Chạy ứng dụng Flask:
 Từ thư mục gốc của dự án (nơi có app.py), chạy lệnh:
@@ -122,60 +133,58 @@ Bạn sẽ thấy một thông báo tương tự như:
 
 * Serving Flask app 'app'
 * Debug mode: on
-WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+...
 * Running on [http://127.0.0.1:5000](http://127.0.0.1:5000)
 Press CTRL+C to quit
 Truy cập ứng dụng:
-Mở trình duyệt web yêu thích của bạn (như Chrome, Firefox, Edge) và truy cập vào địa chỉ sau:
+Mở trình duyệt web của bạn và truy cập vào địa chỉ sau:
 
 [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
 Bạn sẽ thấy giao diện của Hệ Thống Hỗ Trợ Ra Quyết Định AHP.
 
-📂 Cấu Trúc Thư Mục Dự Án
-Dự án của bạn nên có cấu trúc thư mục như sau để Flask có thể nhận diện các file:
+📁 Cấu Trúc Thư Mục Dự Án
+Dự án của bạn nên có cấu trúc thư mục như sau để Flask có thể nhận diện các file một cách chính xác:
 
-.
+AHP-Decision-Support-System/
 ├── app.py                      # Logic chính của ứng dụng Flask và API
 ├── requirements.txt            # Danh sách các thư viện Python cần thiết
 ├── README.md                   # File hướng dẫn này
-├── static/                     # Chứa các file tĩnh (CSS, JS, hình ảnh)
+├── .gitignore                  # (Tùy chọn) File để bỏ qua các file/thư mục không cần đẩy lên Git (ví dụ: venv/)
+├── static/                     # Chứa các tài nguyên tĩnh (CSS, JS, hình ảnh)
 │   ├── css/
 │   │   └── style.css           # CSS tùy chỉnh cho giao diện
 │   └── js/
 │       └── script.js           # Logic JavaScript cho tương tác người dùng
-├── templates/                  # Chứa các file HTML
-│   └── index.html              # File HTML chính của giao diện người dùng
-└── .gitignore                  # (Tùy chọn) File để bỏ qua các file/thư mục không cần đẩy lên Git
-📝 Hướng Dẫn Sử Dụng Ứng Dụng
+└── templates/                  # Chứa các file HTML được Flask render
+    └── index.html              # File HTML chính của giao diện người dùng
+🧑‍💻 Hướng Dẫn Sử Dụng Ứng Dụng
 Sau khi ứng dụng chạy và bạn truy cập vào trình duyệt:
 
 Quản lý Tiêu chí và Phương án:
 
-Trên trang chủ, bạn sẽ thấy phần "Quản lý Tiêu chí và Phương án".
-Sử dụng các ô nhập liệu và nút "Thêm" để thêm các tiêu chí (ví dụ: Giá cả, Chất lượng, Thương hiệu) và phương án (ví dụ: Samsung, LG, Sony).
-Bạn có thể xóa bất kỳ tiêu chí hoặc phương án nào đã thêm bằng nút "Xóa" bên cạnh.
-Lưu ý quan trọng: Để tiến hành so sánh, bạn phải chọn ít nhất 3 tiêu chí và ít nhất 3 phương án từ các danh sách thả xuống (selectCriteriaForEvaluation và selectBrandsForComparison).
+Tại phần "Quản lý Tiêu chí và Phương án", sử dụng các ô nhập liệu và nút "Thêm" để định nghĩa các tiêu chí (ví dụ: Giá cả, Chất lượng, Thương hiệu) và phương án (ví dụ: Samsung, LG, Sony).
+Sử dụng nút "Xóa" bên cạnh mỗi mục để loại bỏ chúng.
+Quan trọng: Để tiến hành so sánh, bạn phải chọn ít nhất 3 tiêu chí và ít nhất 3 phương án từ các danh sách thả xuống tương ứng.
+Nhấn "&lt;i class='bi bi-table'>&lt;/i> Tạo Bảng So sánh Tiêu chí" và "&lt;i class='bi bi-table'>&lt;/i> Tạo Bảng So sánh Phương án" để tạo các ma trận đầu vào.
 Đánh giá Tiêu chí (Ma trận so sánh cặp tiêu chí):
 
-Sau khi chọn đủ tiêu chí, nhấn nút <i class="bi bi-table"></i> Tạo Bảng So sánh Tiêu chí.
-Một bảng ma trận sẽ xuất hiện. Nhập các giá trị so sánh theo cặp (sử dụng thang Saaty 1-9) vào các ô màu trắng. Các ô trên đường chéo chính (luôn là 1) và các ô đối xứng phía dưới (nghịch đảo) sẽ tự động được điền.
-Sau khi nhập, nhấn <i class="bi bi-check-circle"></i> Kiểm tra nhất quán tiêu chí. Ứng dụng sẽ tính toán tỷ lệ nhất quán (CR).
-Nếu CR < 0.1: Ma trận nhất quán, bạn có thể tiếp tục.
-Nếu CR >= 0.1: Ma trận không nhất quán. Bạn cần điều chỉnh lại các giá trị so sánh cho đến khi CR < 0.1 để đảm bảo độ tin cậy của kết quả.
-Trọng số của từng tiêu chí sẽ được hiển thị cùng với biểu đồ Pie Chart.
+Trong phần "1. Ma trận so sánh cặp tiêu chí", nhập các giá trị so sánh theo cặp (sử dụng thang Saaty 1-9) vào các ô màu trắng. Các ô trên đường chéo chính (luôn là 1) và các ô đối xứng phía dưới (giá trị nghịch đảo) sẽ tự động được điền.
+Sau khi nhập, nhấn "&lt;i class='bi bi-check-circle'>&lt;/i> Kiểm tra nhất quán tiêu chí". Ứng dụng sẽ tính toán Tỷ lệ nhất quán (CR).
+Nếu CR &lt; 0.1: Ma trận nhất quán, bạn có thể tiếp tục.
+Nếu CR ≥ 0.1: Ma trận không nhất quán. Bạn cần điều chỉnh lại các giá trị so sánh cho đến khi CR &lt; 0.1 để đảm bảo độ tin cậy của kết quả.
+Trọng số của từng tiêu chí sẽ được hiển thị cùng với Biểu đồ Pie Chart trực quan.
 So sánh Phương án (Ma trận so sánh cặp phương án theo từng tiêu chí):
 
-Nhấn nút <i class="bi bi-table"></i> Tạo Bảng So sánh Phương án.
-Các nút tiêu chí mà bạn đã chọn sẽ xuất hiện phía trên. Nhấn vào từng nút tiêu chí để hiển thị ma trận so sánh các phương án dưới góc độ của tiêu chí đó.
-Thực hiện nhập liệu tương tự như khi so sánh tiêu chí. Ma trận này chỉ xuất hiện khi bạn chọn một tiêu chí cụ thể.
+Trong phần "2. Ma trận so sánh cặp phương án theo từng tiêu chí", bạn sẽ thấy các nút tương ứng với từng tiêu chí mà bạn đã chọn. Nhấn vào mỗi nút tiêu chí để hiển thị ma trận so sánh các phương án dưới góc độ của tiêu chí đó.
+Tiến hành nhập liệu tương tự như khi so sánh tiêu chí.
 Kết quả Tổng hợp & Biểu đồ:
 
-Sau khi đã nhập liệu đầy đủ cho tất cả các ma trận (tiêu chí và tất cả các ma trận phương án), nhấn nút <i class="bi bi-calculator"></i> Tính toán & Đưa ra Khuyến nghị.
+Sau khi đã nhập liệu đầy đủ cho tất cả các ma trận (tiêu chí và tất cả các ma trận phương án theo từng tiêu chí), nhấn nút "&lt;i class='bi bi-calculator'>&lt;/i> Tính toán & Đưa ra Khuyến nghị".
 Ứng dụng sẽ tính toán điểm số tổng hợp cuối cùng cho mỗi phương án dựa trên trọng số tiêu chí và trọng số của phương án theo từng tiêu chí.
-Kết quả sẽ được hiển thị dưới dạng danh sách điểm số và một biểu đồ Bar Chart trực quan, cùng với tên phương án được khuyến nghị là tốt nhất.
+Kết quả sẽ được hiển thị dưới dạng danh sách điểm số và một Biểu đồ Bar Chart trực quan, cùng với tên phương án được khuyến nghị là tốt nhất.
 Lịch sử & Xuất dữ liệu:
 
-Bạn có thể truy cập phần "Lịch sử & Xuất" từ thanh điều hướng.
-Nhấn <i class="bi bi-arrow-clockwise"></i> Tải lịch sử để xem lại các lần tính toán trước đó.
-Sử dụng <i class="bi bi-trash"></i> Xóa lịch sử để xóa toàn bộ dữ liệu lịch sử.
-Sử dụng <i class="bi bi-file-earmark-excel"></i> Xuất Excel hoặc <i class="bi bi-file-earmark-pdf"></i> Xuất PDF để tải về báo cáo kết quả.
+Bạn có thể truy cập phần "Lịch sử & Xuất dữ liệu" từ thanh điều hướng.
+Nhấn "&lt;i class='bi bi-arrow-clockwise'>&lt;/i> Tải lịch sử" để xem lại các lần tính toán trước đó.
+Sử dụng "&lt;i class='bi bi-trash'>&lt;/i> Xóa lịch sử" để xóa toàn bộ dữ liệu lịch sử.
+Sử dụng "&lt;i class='bi bi-file-earmark-excel'>&lt;/i> Xuất Excel" hoặc "&lt;i class='bi bi-file-earmark-pdf'>&lt;/i> Xuất PDF" để tải về báo cáo kết quả.
