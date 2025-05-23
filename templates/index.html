@@ -85,7 +85,7 @@
                                         <td class="fw-bold align-middle">{{ criteria[i] }}</td>
                                         {% for j in range(criteria|length) %}
                                         <td>
-                                            <input type="number" min="1" max="9" step="1" value="{% if i == j %}1{% else %}1{% endif %}"
+                                            <input type="number" min="1" max="9" step="1" value="{% if i == j %}1{% else %}{% endif %}"
                                                    class="form-control form-control-sm ahp-input" data-row="{{ i }}" data-col="{{ j }}"
                                                    {% if i >= j %}disabled{% endif %}>
                                         </td>
@@ -104,7 +104,49 @@
                                 <input type="file" id="importCriteriaFile" accept=".xlsx,.xls,.csv" style="display: none;">
                             </label>
                         </div>
-                        <div id="criteriaConsistencyResult" class="mt-4 text-center"></div>
+                        <div id="criteriaConsistencyResult" class="mt-4 text-center">
+                            <div class="alert alert-info mt-3 d-flex align-items-start p-4 rounded-3" role="alert" style="display: none;" id="consistencyDetailBox">
+                                <i class="bi bi-info-circle-fill flex-shrink-0 me-3 fs-3 text-primary"></i> 
+                                <div class="flex-grow-1 text-start">
+                                    <h5 class="mb-3 text-dark-blue">Kết quả nhất quán:</h5>
+                                    <div class="d-flex flex-wrap justify-content-center gap-3">
+                                        <div class="p-3 bg-white rounded-3 shadow-sm flex-grow-1 text-center border border-primary border-opacity-25">
+                                            <p class="mb-1 text-muted small">Tỷ lệ nhất quán (CR)</p>
+                                            <strong id="displayCR" class="fs-5 text-dark"></strong> 
+                                            <span id="displayCRMessage" class="d-block mt-1 fw-semibold"></span>
+                                        </div>
+                                        <div class="p-3 bg-white rounded-3 shadow-sm flex-grow-1 text-center border border-info border-opacity-25">
+                                            <p class="mb-1 text-muted small">Chỉ số nhất quán (CI)</p>
+                                            <strong id="displayCI" class="fs-5 text-dark"></strong>
+                                        </div>
+                                        <div class="p-3 bg-white rounded-3 shadow-sm flex-grow-1 text-center border border-success border-opacity-25">
+                                            <p class="mb-1 text-muted small">Lambda Max ($\lambda_{max}$)</p>
+                                            <strong id="displayLambdaMax" class="fs-5 text-dark"></strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="detailedConsistencyTableContainer" style="display: none;" class="mt-4">
+                                <h5 class="text-start mb-3 text-dark-blue">Chi tiết tính toán:</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-striped table-hover" id="detailedConsistencyTable">
+                                        <thead class="table-primary">
+                                            <tr>
+                                                <th>Tiêu chí</th>
+                                                {% for criterion in criteria %}
+                                                <th>{{ criterion }}</th>
+                                                {% endfor %}
+                                                <th>Sum Weight</th>
+                                                <th>Trọng số PA</th>
+                                                <th>Consistency Vector</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -120,7 +162,7 @@
                             <div id="criterionButtons" class="d-flex flex-wrap justify-content-center gap-3 mb-5">
                                 {% for criterion in criteria %}
                                 <button type="button" class="btn btn-outline-info criterion-select-btn flex-grow-1" data-criterion-index="{{ loop.index0 }}" disabled>
-                                    <i class="bi bi-tag me-2"></i> {{ criterion }}
+                                    <i class="bi bi-tag me-2"></i> {{ criterion }} <span class="consistency-icon ms-2" style="display: none;"></span>
                                 </button>
                                 {% endfor %}
                             </div>
@@ -134,6 +176,9 @@
                                             <i class="bi bi-upload me-2"></i> Nhập ma trận này từ File
                                             <input type="file" id="importBrandFile_{{ loop.index0 }}" accept=".xlsx,.xls,.csv" style="display: none;" data-criterion-index="{{ loop.index0 }}">
                                         </label>
+                                        <button type="button" class="btn btn-sm btn-info check-brand-consistency-btn" data-criterion-index="{{ loop.index0 }}">
+                                            <i class="bi bi-check-circle me-2"></i> Kiểm tra nhất quán
+                                        </button>
                                     </div>
                                     <div class="table-responsive">
                                         <table class="table table-bordered ahp-table table-hover" id="brandTable_{{ loop.index0 }}">
@@ -151,7 +196,7 @@
                                                     <td class="fw-bold align-middle">{{ brands[i] }}</td>
                                                     {% for j in range(brands|length) %}
                                                     <td>
-                                                        <input type="number" min="1" max="9" step="1" value="{% if i == j %}1{% else %}1{% endif %}"
+                                                        <input type="number" min="1" max="9" step="1" value="{% if i == j %}1{% else %}{% endif %}"
                                                                class="form-control form-control-sm ahp-input" data-row="{{ i }}" data-col="{{ j }}"
                                                                data-criterion="{{ criterion }}"
                                                                disabled>
@@ -161,6 +206,49 @@
                                                 {% endfor %}
                                             </tbody>
                                         </table>
+                                    </div>
+                                    <div id="brandConsistencyResult_{{ loop.index0 }}" class="mt-4 text-center">
+                                        <div class="alert alert-info mt-3 d-flex align-items-start p-4 rounded-3" role="alert" style="display: none;" id="brandConsistencyDetailBox_{{ loop.index0 }}">
+                                            <i class="bi bi-info-circle-fill flex-shrink-0 me-3 fs-3 text-primary"></i> 
+                                            <div class="flex-grow-1 text-start">
+                                                <h5 class="mb-3 text-dark-blue">Kết quả nhất quán cho "{{ criterion }}":</h5>
+                                                <div class="d-flex flex-wrap justify-content-center gap-3">
+                                                    <div class="p-3 bg-white rounded-3 shadow-sm flex-grow-1 text-center border border-primary border-opacity-25">
+                                                        <p class="mb-1 text-muted small">Tỷ lệ nhất quán (CR)</p>
+                                                        <strong id="brandDisplayCR_{{ loop.index0 }}" class="fs-5 text-dark"></strong> 
+                                                        <span id="brandDisplayCRMessage_{{ loop.index0 }}" class="d-block mt-1 fw-semibold"></span>
+                                                    </div>
+                                                    <div class="p-3 bg-white rounded-3 shadow-sm flex-grow-1 text-center border border-info border-opacity-25">
+                                                        <p class="mb-1 text-muted small">Chỉ số nhất quán (CI)</p>
+                                                        <strong id="brandDisplayCI_{{ loop.index0 }}" class="fs-5 text-dark"></strong>
+                                                    </div>
+                                                    <div class="p-3 bg-white rounded-3 shadow-sm flex-grow-1 text-center border border-success border-opacity-25">
+                                                        <p class="mb-1 text-muted small">Lambda Max ($\lambda_{max}$)</p>
+                                                        <strong id="brandDisplayLambdaMax_{{ loop.index0 }}" class="fs-5 text-dark"></strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="brandDetailedConsistencyTableContainer_{{ loop.index0 }}" style="display: none;" class="mt-4">
+                                            <h5 class="text-start mb-3 text-dark-blue">Chi tiết tính toán cho "{{ criterion }}":</h5>
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered table-striped table-hover" id="brandDetailedConsistencyTable_{{ loop.index0 }}">
+                                                    <thead class="table-primary">
+                                                        <tr>
+                                                            <th>Thương hiệu</th>
+                                                            {% for brand in brands %}
+                                                            <th>{{ brand }}</th>
+                                                            {% endfor %}
+                                                            <th>Sum Weight</th>
+                                                            <th>Trọng số PA</th>
+                                                            <th>Consistency Vector</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 {% endfor %}
