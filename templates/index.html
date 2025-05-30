@@ -31,7 +31,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#" data-section="brand-comparison">
-                            <i class="bi bi-grid me-2"></i> So sánh Thương hiệu
+                            <i class="bi bi-grid me-2"></i> So sánh Phương Án
                         </a>
                     </li>
                     <li class="nav-item">
@@ -155,7 +155,7 @@
                 <div id="brandComparisonSection" class="disabled-overlay">
                     <div class="card shadow-lg mb-5">
                         <div class="card-header bg-info text-white p-3 rounded-top-2">
-                            <h2 class="h4 mb-0"><i class="bi bi-boxes me-2"></i> 2. So sánh các thương hiệu theo từng tiêu chí</h2>
+                            <h2 class="h4 mb-0"><i class="bi bi-boxes me-2"></i> 2. So sánh các phương án theo từng tiêu chí</h2>
                         </div>
                         <div class="card-body p-4">
                             <p class="mb-4 text-secondary">Chọn một tiêu chí dưới đây để đánh giá các thương hiệu dựa trên tiêu chí đó. Sử dụng cùng thang điểm 1-9 AHP:</p>
@@ -184,7 +184,7 @@
                                         <table class="table table-bordered ahp-table table-hover" id="brandTable_{{ loop.index0 }}">
                                             <thead>
                                                 <tr class="table-warning">
-                                                    <th>Thương hiệu</th>
+                                                    <th>Phương án </th>
                                                     {% for brand in brands %}
                                                     <th>{{ brand }}</th>
                                                     {% endfor %}
@@ -282,6 +282,19 @@
                             <canvas id="criteriaPieChart"></canvas>
                         </div>
 
+                        <h3 class="mt-4 text-dark-blue">Tổng hợp trọng số thương hiệu theo từng tiêu chí:</h3>
+                        <div class="table-responsive mb-5">
+                            <table class="table table-bordered table-striped table-hover" id="consolidatedBrandWeightsTable">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th>Thương hiệu</th>
+                                        </tr>
+                                </thead>
+                                <tbody>
+                                    </tbody>
+                            </table>
+                        </div>
+
                         <h3 class="mt-4 text-dark-blue">Điểm số tổng hợp các thương hiệu:</h3>
                         <ul id="brandScoresList" class="list-group list-group-flush mb-4"></ul>
                         <div class="chart-container shadow-sm p-3 mb-5 bg-white rounded-3">
@@ -290,7 +303,16 @@
 
                         <h3 class="mt-4 text-primary text-center">Khuyến nghị tối ưu: <strong id="bestBrand" class="display-6"></strong></h3>
                         <p class="text-center text-muted small">Đây là thương hiệu được đánh giá cao nhất dựa trên các tiêu chí và mức độ ưu tiên của bạn.</p>
-                    </div>
+
+                        <div class="d-flex justify-content-center gap-2 mt-4">
+                            <button id="exportResultsExcelBtn" class="btn btn-success custom-btn-success">
+                                <i class="bi bi-file-earmark-excel me-2"></i> Xuất Excel Kết quả
+                            </button>
+                            <button id="exportResultsPdfBtn" class="btn btn-danger custom-btn-danger">
+                                <i class="bi bi-file-earmark-pdf me-2"></i> Xuất PDF Kết quả
+                            </button>
+                        </div>
+                        </div>
                 </div>
             </div>
 
@@ -308,11 +330,11 @@
                                 <i class="bi bi-trash me-2"></i> Xóa lịch sử
                             </button>
                         </div>
-                        <div class="d-flex justify-content-end gap-2 mb-4">
-                            <button id="exportExcelBtn" class="btn btn-success custom-btn-success">
+                        <div class="d-flex justify-content-center gap-2 mt-4">
+                            <button id="exportHistoryExcelBtn" class="btn btn-success custom-btn-success">
                                 <i class="bi bi-file-earmark-excel me-2"></i> Xuất Excel
                             </button>
-                            <button id="exportPdfBtn" class="btn btn-danger custom-btn-danger">
+                            <button id="exportHistoryPdfBtn" class="btn btn-danger custom-btn-danger">
                                 <i class="bi bi-file-earmark-pdf me-2"></i> Xuất PDF
                             </button>
                         </div>

@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const brandLabels = typeof brands_list !== 'undefined' ? brands_list : ["Thương hiệu A", "Thương hiệu B", "Thương hiệu C"];
 
     let brandsChartInstance = null;
-    let criteriaChartInstance = null;
+    let criteriaChartInstance = null; // This was not used for the bar chart, but for consistency if needed
     let criteriaPieChartInstance = null;
 
     let historyData = []; 
@@ -26,10 +26,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const historyListContainer = document.getElementById('historyListContainer');
     const loadHistoryBtn = document.getElementById('loadHistoryBtn');
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-    const exportExcelBtn = document.getElementById('exportExcelBtn');
-    const exportPdfBtn = document.getElementById('exportPdf');
     const historyPagination = document.getElementById('historyPagination');
     const noHistoryMessage = document.getElementById('noHistoryMessage');
+
+    // Cache DOM elements for export buttons in results section
+    const exportResultsExcelBtn = document.getElementById('exportResultsExcelBtn');
+    const exportResultsPdfBtn = document.getElementById('exportResultsPdfBtn');
 
     // Cache các phần tử DOM cho CI, Lambda Max, và hộp chi tiết của tiêu chí
     const displayCR = document.getElementById('displayCR');
@@ -41,6 +43,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const detailedConsistencyTableContainer = document.getElementById('detailedConsistencyTableContainer');
     const detailedConsistencyTableBody = document.querySelector('#detailedConsistencyTable tbody');
 
+    // Element to display consolidated brand weights per criterion (table)
+    const consolidatedBrandWeightsTable = document.getElementById('consolidatedBrandWeightsTable');
+
+
+    // Message container for user feedback
+    const messageContainer = document.createElement('div');
+    messageContainer.id = 'appMessageContainer';
+    messageContainer.style.position = 'fixed';
+    messageContainer.style.top = '10px';
+    messageContainer.style.right = '10px';
+    messageContainer.style.zIndex = '1050';
+    document.body.appendChild(messageContainer);
 
     // Các input file cho việc nhập liệu
     const importCriteriaFile = document.getElementById('importCriteriaFile');
@@ -52,11 +66,35 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     let calculatedCriteriaWeights = [];
+    let finalCalculatedBrandScores = []; // Store final brand scores for export
+    let currentCriteriaCR = 0; // Store current criteria CR for export
+    let currentCriteriaCI = 0; // Store current criteria CI for export
+    let currentCriteriaLambdaMax = 0; // Store current criteria Lambda Max for export
+    let currentCriteriaConsistent = false; // Store current criteria consistency for export
+
+    // NEW: Biến toàn cục để lưu trữ brand_weights_per_criterion sau khi tính toán
+    let lastCalculatedBrandWeightsPerCriterion = {};
 
     // Biến trạng thái để theo dõi tính nhất quán
     let isCriteriaMatrixConsistent = false;
     // Mảng để theo dõi tính nhất quán của từng ma trận thương hiệu (theo thứ tự index tiêu chí)
     let brandMatricesConsistencyStatus = Array(criteriaLabels.length).fill(false);
+
+    // --- Hàm hiển thị thông báo ---
+    function showMessage(message, type = 'success') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        messageContainer.appendChild(alertDiv);
+        // Remove alert after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
 
     // --- Hàm kiểm tra trạng thái sẵn sàng của nút "Tính toán và Đưa ra Khuyến nghị" ---
     function checkOverallCalculationReadiness() {
@@ -213,6 +251,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tableId === 'criteriaTable') {
             checkCriteriaConsistencyBtn.classList.remove('btn-success', 'btn-danger');
             checkCriteriaConsistencyBtn.classList.add('btn-primary');
+            isCriteriaMatrixConsistent = false; // Reset consistency for criteria matrix
+            // Vô hiệu hóa tất cả các nút chọn tiêu chí so sánh thương hiệu
+            criterionButtonsContainer.querySelectorAll('.criterion-select-btn').forEach(btn => {
+                btn.disabled = true;
+                updateCriterionButtonIcon(parseInt(btn.dataset.criterionIndex), false); // Ẩn icon
+            });
+            // Vô hiệu hóa nút Calculate
+            checkOverallCalculationReadiness();
         } else { // Đối với bảng so sánh thương hiệu
             const criterionIndex = parseInt(tableId.split('_')[1]);
             const brandCheckBtn = document.querySelector(`.check-brand-consistency-btn[data-criterion-index="${criterionIndex}"]`);
@@ -220,7 +266,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 brandCheckBtn.classList.remove('btn-success', 'btn-danger');
                 brandCheckBtn.classList.add('btn-info');
             }
+            brandMatricesConsistencyStatus[criterionIndex] = false; // Reset consistency for this brand matrix
             updateCriterionButtonIcon(criterionIndex, false);
+            // Vô hiệu hóa các nút tiêu chí tiếp theo và nút Calculate
+            for (let i = criterionIndex + 1; i < criteriaLabels.length; i++) {
+                const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                if (btn) {
+                    btn.disabled = true;
+                    updateCriterionButtonIcon(i, false);
+                }
+                brandMatricesConsistencyStatus[i] = false;
+            }
+            checkOverallCalculationReadiness();
         }
     }
 
@@ -263,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (i === j) {
                     // Đường chéo chính luôn là 1 và không cần kiểm tra
                     value = 1;
-                } else { // i > j, các ô nghịch đảo, giá trị đã được tính tự động từ ô đối xứng
+                } else { // i > j, các ô nghịch đảo, giá trị được đặt bởi ô đối xứng
                     value = parseFloat(input.value);
                 }
                 row.push(value);
@@ -273,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!allInputsValid) {
-            alert(errorMessage);
+            showMessage(errorMessage, 'danger');
             if (firstInvalidInput) {
                 firstInvalidInput.focus(); // Focus vào ô lỗi đầu tiên
             }
@@ -385,6 +442,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Nút "Kiểm tra nhất quán tiêu chí" được nhấn.');
         const criteriaMatrix = getMatrix('criteriaTable', criteriaLabels.length);
         if (!criteriaMatrix) { // Nếu getMatrix trả về null do lỗi validation
+            isCriteriaMatrixConsistent = false;
+            checkOverallCalculationReadiness();
             return; // Dừng thực thi
         }
 
@@ -399,6 +458,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const sumWeightsRow = result.sum_weights_row;     
             const consistencyVector = result.consistency_vector; 
 
+            // Store current criteria consistency data
+            currentCriteriaCR = cr;
+            currentCriteriaCI = ci;
+            currentCriteriaLambdaMax = lambda_max;
+            currentCriteriaConsistent = result.consistent;
+
             // Cập nhật các giá trị vào các phần tử HTML mới
             updateConsistencyDisplay(
                 displayCR, displayCRMessage, displayCI, displayLambdaMax, consistencyDetailBox,
@@ -411,20 +476,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Cập nhật trạng thái nhất quán của ma trận tiêu chí
             isCriteriaMatrixConsistent = result.consistent;
-            checkOverallCalculationReadiness(); // Kiểm tra lại trạng thái nút Calculate
+            
+            // Yêu cầu 1: Hiển thị thông báo thành công
+            if (isCriteriaMatrixConsistent) {
+                showMessage('Tính toán nhất quán tiêu chí thành công!', 'success');
+            }
 
-            // Nếu nhất quán, cho phép chọn tiêu chí so sánh thương hiệu
+
+            // Nếu nhất quán, cho phép chọn tiêu chí so sánh thương hiệu đầu tiên
             if (isCriteriaMatrixConsistent) {
                 brandComparisonSection.classList.remove('disabled-overlay');
-                criterionButtonsContainer.querySelectorAll('.criterion-select-btn').forEach(btn => {
-                    btn.disabled = false;
-                });
+                // Chỉ kích hoạt nút đầu tiên
+                const firstCriterionBtn = document.querySelector('.criterion-select-btn[data-criterion-index="0"]');
+                if (firstCriterionBtn) {
+                    firstCriterionBtn.disabled = false;
+                }
+                // Đảm bảo các nút còn lại vẫn bị vô hiệu hóa
+                for (let i = 1; i < criteriaLabels.length; i++) {
+                    const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                    if (btn) btn.disabled = true;
+                }
             } else {
                 brandComparisonSection.classList.add('disabled-overlay');
                 criterionButtonsContainer.querySelectorAll('.criterion-select-btn').forEach(btn => {
                     btn.disabled = true;
                 });
             }
+            checkOverallCalculationReadiness(); // Kiểm tra lại trạng thái nút Calculate
             
             criteriaWeightsList.innerHTML = '';
             calculatedCriteriaWeights.forEach((weight, index) => {
@@ -438,10 +516,10 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Lỗi khi kiểm tra nhất quán tiêu chí:', error);
             consistencyDetailBox.style.display = 'flex'; // Vẫn hiển thị hộp để báo lỗi
-            consistencyDetailBox.classList.remove('alert-success', 'alert-warning');
+            consistencyDetailBox.classList.remove('alert-warning', 'alert-danger');
             consistencyDetailBox.classList.add('alert-danger');
             consistencyDetailBox.innerHTML = `
-                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2"></i>
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3 fs-3 text-primary"></i>
                 <div>Lỗi: ${error.message}. Vui lòng kiểm tra lại dữ liệu nhập.</div>`;
             
             detailedConsistencyTableContainer.style.display = 'none'; // Ẩn bảng chi tiết nếu có lỗi
@@ -471,7 +549,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const result = await postData('/import_criteria_matrix', formData, true); // true cho isFormData
-            alert(result.message);
+            showMessage(result.message, 'success');
             updateMatrixUI('criteriaTable', result.matrix, criteriaLabels.length);
             // Xóa file đã chọn khỏi input để có thể chọn lại cùng file
             event.target.value = ''; 
@@ -481,15 +559,25 @@ document.addEventListener('DOMContentLoaded', function() {
             // Reset màu nút kiểm tra nhất quán chính
             checkCriteriaConsistencyBtn.classList.remove('btn-success', 'btn-danger');
             checkCriteriaConsistencyBtn.classList.add('btn-primary');
+            // Vô hiệu hóa tất cả các nút chọn tiêu chí so sánh thương hiệu
+            criterionButtonsContainer.querySelectorAll('.criterion-select-btn').forEach(btn => {
+                btn.disabled = true;
+                updateCriterionButtonIcon(parseInt(btn.dataset.criterionIndex), false);
+            });
         } catch (error) {
             console.error('Lỗi khi nhập ma trận tiêu chí từ file:', error);
-            alert(`Lỗi nhập file: ${error.message}`);
+            showMessage(`Lỗi nhập file: ${error.message}`, 'danger');
             event.target.value = ''; // Xóa file đã chọn
             isCriteriaMatrixConsistent = false;
             checkOverallCalculationReadiness();
             // Reset màu nút kiểm tra nhất quán chính
             checkCriteriaConsistencyBtn.classList.remove('btn-success', 'btn-danger');
             checkCriteriaConsistencyBtn.classList.add('btn-primary');
+            // Vô hiệu hóa tất cả các nút chọn tiêu chí so sánh thương hiệu
+            criterionButtonsContainer.querySelectorAll('.criterion-select-btn').forEach(btn => {
+                btn.disabled = true;
+                updateCriterionButtonIcon(parseInt(btn.dataset.criterionIndex), false);
+            });
         }
     });
 
@@ -497,17 +585,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Xử lý các nút chọn tiêu chí để so sánh thương hiệu ---
     criterionButtonsContainer.addEventListener('click', function(event) {
         if (event.target.classList.contains('criterion-select-btn')) {
-            console.log('Nút tiêu chí được nhấn:', event.target.textContent.trim());
+            const clickedButton = event.target;
+            const criterionIndex = parseInt(clickedButton.dataset.criterionIndex);
+
+            // Kiểm tra ràng buộc: chỉ cho phép chọn nếu nút trước đó đã nhất quán (trừ nút đầu tiên)
+            if (criterionIndex > 0) {
+                const prevCriterionIndex = criterionIndex - 1;
+                if (!brandMatricesConsistencyStatus[prevCriterionIndex]) {
+                    showMessage(`Vui lòng kiểm tra và đảm bảo ma trận cho tiêu chí "${criteriaLabels[prevCriterionIndex]}" nhất quán trước khi chuyển sang tiêu chí này.`, 'warning');
+                    return; // Ngăn không cho chuyển tab
+                }
+            }
+
+            console.log('Nút tiêu chí được nhấn:', clickedButton.textContent.trim());
             criterionButtonsContainer.querySelectorAll('.criterion-select-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
+            clickedButton.classList.add('active');
 
             brandComparisonTablesContainer.querySelectorAll('.brand-comparison-table-wrapper').forEach(tableDiv => {
                 tableDiv.style.display = 'none';
             });
 
-            const criterionIndex = parseInt(event.target.dataset.criterionIndex);
             const targetTableWrapper = document.getElementById(`brandTableWrapper_${criterionIndex}`);
             if (targetTableWrapper) {
                 targetTableWrapper.style.display = 'block';
@@ -538,7 +637,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 try {
                     const result = await postData(`/import_brand_matrix/${criterionIndex}`, formData, true);
-                    alert(result.message);
+                    showMessage(result.message, 'success');
                     updateMatrixUI(`brandTable_${criterionIndex}`, result.matrix, brandLabels.length);
                     // Cập nhật ma trận trong bộ nhớ sau khi nhập thành công
                     brandsComparisonMatrices[criterionIndex] = result.matrix;
@@ -554,9 +653,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     // Sau khi nhập file, ẩn dấu tích trên nút tiêu chí tương ứng
                     updateCriterionButtonIcon(criterionIndex, false);
+                    // Vô hiệu hóa các nút tiêu chí tiếp theo
+                    for (let i = criterionIndex + 1; i < criteriaLabels.length; i++) {
+                        const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                        if (btn) {
+                            btn.disabled = true;
+                            updateCriterionButtonIcon(i, false);
+                        }
+                        brandMatricesConsistencyStatus[i] = false;
+                    }
                 } catch (error) {
                     console.error(`Lỗi khi nhập ma trận thương hiệu cho tiêu chí ${criterionIndex} từ file:`, error);
-                    alert(`Lỗi nhập file: ${error.message}`);
+                    showMessage(`Lỗi nhập file: ${error.message}`, 'danger');
                     event.target.value = ''; // Xóa file đã chọn
                     brandMatricesConsistencyStatus[criterionIndex] = false;
                     checkOverallCalculationReadiness();
@@ -568,6 +676,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     // Sau khi nhập file, ẩn dấu tích trên nút tiêu chí tương ứng
                     updateCriterionButtonIcon(criterionIndex, false);
+                     // Vô hiệu hóa các nút tiêu chí tiếp theo
+                     for (let i = criterionIndex + 1; i < criteriaLabels.length; i++) {
+                        const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                        if (btn) {
+                            btn.disabled = true;
+                            updateCriterionButtonIcon(i, false);
+                        }
+                        brandMatricesConsistencyStatus[i] = false;
+                    }
                 }
             });
         }
@@ -580,6 +697,17 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(`Nút "Kiểm tra nhất quán" cho tiêu chí ${criterionIndex} được nhấn.`);
             const brandMatrix = getMatrix(`brandTable_${criterionIndex}`, brandLabels.length);
             if (!brandMatrix) { // Nếu getMatrix trả về null do lỗi validation
+                brandMatricesConsistencyStatus[criterionIndex] = false; // Đặt trạng thái không nhất quán
+                checkOverallCalculationReadiness(); // Cập nhật nút Calculate
+                // Vô hiệu hóa các nút tiêu chí tiếp theo
+                for (let i = criterionIndex + 1; i < criteriaLabels.length; i++) {
+                    const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                    if (btn) {
+                        btn.disabled = true;
+                        updateCriterionButtonIcon(i, false);
+                    }
+                    brandMatricesConsistencyStatus[i] = false;
+                }
                 return; // Dừng thực thi
             }
 
@@ -620,9 +748,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (consistent) {
                     button.classList.remove('btn-info', 'btn-danger');
                     button.classList.add('btn-success');
+                    showMessage(`Ma trận thương hiệu cho tiêu chí "${criteriaLabels[criterionIndex]}" nhất quán!`, 'success');
+
+                    // Kích hoạt nút tiêu chí tiếp theo nếu có
+                    const nextCriterionButton = document.querySelector(`.criterion-select-btn[data-criterion-index="${criterionIndex + 1}"]`);
+                    if (nextCriterionButton) {
+                        nextCriterionButton.disabled = false;
+                    }
                 } else {
                     button.classList.remove('btn-info', 'btn-success');
                     button.classList.add('btn-danger');
+                    showMessage(`Ma trận thương hiệu cho tiêu chí "${criteriaLabels[criterionIndex]}" không nhất quán. Vui lòng điều chỉnh!`, 'danger');
+                    // Vô hiệu hóa các nút tiêu chí tiếp theo
+                    for (let i = criterionIndex + 1; i < criteriaLabels.length; i++) {
+                        const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                        if (btn) {
+                            btn.disabled = true;
+                            updateCriterionButtonIcon(i, false);
+                        }
+                        brandMatricesConsistencyStatus[i] = false;
+                    }
                 }
                 // Cập nhật dấu tích trên nút tiêu chí tương ứng
                 updateCriterionButtonIcon(criterionIndex, consistent);
@@ -637,7 +782,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     brandConsistencyDetailBox.classList.remove('alert-success', 'alert-warning');
                     brandConsistencyDetailBox.classList.add('alert-danger');
                     brandConsistencyDetailBox.innerHTML = `
-                        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2"></i>
+                        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3 fs-3 text-primary"></i>
                         <div>Lỗi: ${error.message}. Vui lòng kiểm tra lại dữ liệu nhập.</div>`;
                 }
                 if (brandDetailedConsistencyTableContainer) {
@@ -652,6 +797,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 button.classList.add('btn-danger');
                 // Ẩn dấu tích trên nút tiêu chí tương ứng khi có lỗi
                 updateCriterionButtonIcon(criterionIndex, false);
+                // Vô hiệu hóa các nút tiêu chí tiếp theo
+                for (let i = criterionIndex + 1; i < criteriaLabels.length; i++) {
+                    const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                    if (btn) {
+                        btn.disabled = true;
+                        updateCriterionButtonIcon(i, false);
+                    }
+                    brandMatricesConsistencyStatus[i] = false;
+                }
             }
         });
     });
@@ -726,6 +880,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // Khi thay đổi input, ẩn dấu tích trên nút tiêu chí tương ứng
             updateCriterionButtonIcon(criterionIndex, false);
+
+            // Vô hiệu hóa các nút tiêu chí tiếp theo
+            for (let i = criterionIndex + 1; i < criteriaLabels.length; i++) {
+                const btn = document.querySelector(`.criterion-select-btn[data-criterion-index="${i}"]`);
+                if (btn) {
+                    btn.disabled = true;
+                    updateCriterionButtonIcon(i, false);
+                }
+                brandMatricesConsistencyStatus[i] = false;
+            }
         }
     });
 
@@ -860,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Nút "Tính toán và Đưa ra Khuyến nghị" được nhấn.');
         // Kiểm tra lại tính nhất quán lần cuối trước khi gửi yêu cầu
         if (!isCriteriaMatrixConsistent || !brandMatricesConsistencyStatus.every(status => status === true)) {
-            alert('Vui lòng đảm bảo tất cả các ma trận (tiêu chí và thương hiệu) đều nhất quán trước khi tính toán tổng hợp!');
+            showMessage('Vui lòng đảm bảo tất cả các ma trận (tiêu chí và thương hiệu) đều nhất quán trước khi tính toán tổng hợp!', 'warning');
             console.warn('Tính toán bị dừng: Các ma trận không nhất quán.');
             return;
         }
@@ -868,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const criteriaMatrix = getMatrix('criteriaTable', criteriaLabels.length);
         // Thêm kiểm tra validation cho criteriaMatrix trước khi gửi đi
         if (!criteriaMatrix) {
-            // getMatrix đã hiển thị alert, chỉ cần return
+            // getMatrix đã hiển thị showMessage, chỉ cần return
             return;
         }
 
@@ -878,7 +1042,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentBrandMatrix = getMatrix(`brandTable_${i}`, brandLabels.length);
             if (!currentBrandMatrix) {
                 allBrandMatricesValid = false;
-                // getMatrix đã hiển thị alert, chỉ cần break
+                // getMatrix đã hiển thị showMessage, chỉ cần break
                 break; 
             }
             brandMatricesDataToSend[criteriaLabels[i]] = currentBrandMatrix;
@@ -908,38 +1072,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 const consistencyMsg = data.criteria_consistent ? '<span class="text-success fw-bold">Nhất quán (CR < 0.1)</span>' : '<span class="text-danger fw-bold">Không nhất quán (CR >= 0.1) - Vui lòng xem xét lại đánh giá của bạn!</span>';
                 criteriaConsistencyMessage.innerHTML = consistencyMsg;
                 updateCriteriaPieChart(data.criteria_weights);
+
+                // Update stored criteria data after successful calculation
+                calculatedCriteriaWeights = data.criteria_weights;
+                currentCriteriaCR = data.criteria_cr;
+                currentCriteriaCI = data.criteria_ci;
+                currentCriteriaLambdaMax = data.criteria_lambda_max;
+                currentCriteriaConsistent = data.criteria_consistent;
             }
 
-            // Hiển thị kết quả nhất quán cho từng ma trận thương hiệu (nếu cần, mặc dù đã hiển thị ở bước kiểm tra riêng)
-            for (let i = 0; i < criteriaLabels.length; i++) {
-                const criterionName = criteriaLabels[i];
-                const brandCriterionData = data.brand_weights_per_criterion[criterionName];
-
-                const brandDisplayCR = document.getElementById(`brandDisplayCR_${i}`);
-                const brandDisplayCRMessage = document.getElementById(`brandDisplayCRMessage_${i}`);
-                const brandDisplayCI = document.getElementById(`brandDisplayCI_${i}`);
-                const brandDisplayLambdaMax = document.getElementById(`brandDisplayLambdaMax_${i}`);
-                const brandConsistencyDetailBox = document.getElementById(`brandConsistencyDetailBox_${i}`);
-                const brandDetailedConsistencyTableContainer = document.getElementById(`brandDetailedConsistencyTableContainer_${i}`);
-                const brandDetailedConsistencyTableBody = document.querySelector(`#brandDetailedConsistencyTable_${i} tbody`);
-
-                if (brandDisplayCR && brandConsistencyDetailBox) {
-                    updateConsistencyDisplay(
-                        brandDisplayCR, brandDisplayCRMessage, brandDisplayCI, brandDisplayLambdaMax, brandConsistencyDetailBox,
-                        brandCriterionData.cr, brandCriterionData.ci, brandCriterionData.lambda_max, brandCriterionData.consistent, true
-                    );
-                }
-                if (brandDetailedConsistencyTableBody && brandDetailedConsistencyTableContainer) {
-                    updateDetailedConsistencyTable(
-                        brandDetailedConsistencyTableBody, brandLabels, 
-                        brandCriterionData.normalized_matrix, brandCriterionData.sum_weights_row, 
-                        brandCriterionData.weights, brandCriterionData.consistency_vector
-                    );
-                    brandDetailedConsistencyTableContainer.style.display = 'block';
-                }
-                // Cập nhật dấu tích trên nút tiêu chí sau khi tính toán tổng hợp
-                updateCriterionButtonIcon(i, brandCriterionData.consistent);
+            lastCalculatedBrandWeightsPerCriterion = {}; // Clear previous data
+            for (const criterionName in data.brand_weights_per_criterion) {
+                const criterionData = data.brand_weights_per_criterion[criterionName];
+                // Store this data globally for PDF export (vẫn cần để xuất PDF/Excel)
+                lastCalculatedBrandWeightsPerCriterion[criterionName] = criterionData;
             }
+
+            // Populate the consolidated brand weights table
+            const consolidatedTableHead = consolidatedBrandWeightsTable.querySelector('thead tr');
+            const consolidatedTableBody = consolidatedBrandWeightsTable.querySelector('tbody');
+            consolidatedTableHead.innerHTML = '<th>Thương hiệu</th>'; // Reset header
+            consolidatedTableBody.innerHTML = ''; // Clear previous body
+
+            // Add criterion headers
+            criteriaLabels.forEach(label => {
+                const th = document.createElement('th');
+                th.textContent = label;
+                consolidatedTableHead.appendChild(th);
+            });
+
+            // Add rows for each brand
+            brandLabels.forEach((brand, brandIndex) => {
+                const tr = document.createElement('tr');
+                const th = document.createElement('th');
+                th.textContent = brand;
+                tr.appendChild(th);
+
+                criteriaLabels.forEach(criterion => {
+                    const td = document.createElement('td');
+                    const criterionData = data.brand_weights_per_criterion[criterion];
+                    if (criterionData && criterionData.weights && criterionData.weights[brandIndex] !== undefined) {
+                        td.textContent = (criterionData.weights[brandIndex] * 100).toFixed(2) + '%';
+                    } else {
+                        td.textContent = '-'; // Or some other placeholder
+                    }
+                    tr.appendChild(td);
+                });
+                consolidatedTableBody.appendChild(tr);
+            });
 
 
             const finalBrandScores = data.final_brand_scores;
@@ -954,14 +1134,15 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             updateBrandsChart(finalBrandScores.map(item => item[0]), finalBrandScores.map(item => item[1]), bestBrandName);
+            finalCalculatedBrandScores = finalBrandScores; // Store final brand scores
 
-            document.querySelector('a[data-section="results-charts"]').click();
+            document.querySelector('a[data-section="results-charts"]').click(); // Chuyển sang tab kết quả
 
-            loadHistory();
+            loadHistory(); // Tải lại lịch sử sau khi tính toán mới
 
         } catch (error) {
             console.error('Lỗi khi gửi yêu cầu tính toán tổng hợp:', error);
-            alert(`Đã xảy ra lỗi khi tính toán: ${error.message}. Vui lòng thử lại.`);
+            showMessage(`Đã xảy ra lỗi khi tính toán: ${error.message}. Vui lòng thử lại.`, 'danger');
         }
     });
 
@@ -1030,26 +1211,155 @@ document.addEventListener('DOMContentLoaded', function() {
         if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử không? Hành động này không thể hoàn tác!')) {
             try {
                 const data = await postData('/clear_history', {});
-                alert(data.message);
+                showMessage(data.message, 'success');
                 currentHistoryPage = 1;
                 loadHistory();
             } catch (error) {
                 console.error('Lỗi khi xóa lịch sử:', error);
-                alert(`Đã xảy ra lỗi khi xóa lịch sử: ${error.message}.`);
+                showMessage(`Đã xảy ra lỗi khi xóa lịch sử: ${error.message}.`, 'danger');
             }
         }
     }
 
-    // --- Xử lý nút Xuất Excel ---
-    exportExcelBtn.addEventListener('click', () => {
-        console.log('Nút "Xuất Excel" được nhấn.');
-        window.open('/export_excel', '_blank');
+    // --- Xử lý nút Xuất Excel Kết quả hiện tại ---
+    exportResultsExcelBtn.addEventListener('click', async () => {
+        console.log('Nút "Xuất Excel Kết quả" được nhấn.');
+        if (calculatedCriteriaWeights.length === 0 || finalCalculatedBrandScores.length === 0) {
+            showMessage('Vui lòng tính toán kết quả trước khi xuất file Excel.', 'warning');
+            return;
+        }
+
+        try {
+            const dataToExport = {
+                criteria_weights: calculatedCriteriaWeights,
+                criteria_cr: currentCriteriaCR,
+                criteria_ci: currentCriteriaCI,
+                criteria_lambda_max: currentCriteriaLambdaMax,
+                criteria_consistent: currentCriteriaConsistent,
+                final_brand_scores: finalCalculatedBrandScores,
+                best_brand: bestBrandElement.textContent,
+                criteria_labels: criteriaLabels,
+                brand_labels: brandLabels,
+                brand_weights_per_criterion: lastCalculatedBrandWeightsPerCriterion
+            };
+
+            const response = await fetch('/export_current_excel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToExport)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.file_content && result.file_name) {
+                    try {
+                        // Giải mã Base64 và tạo Blob
+                        // Đảm bảo chuỗi Base64 không có ký tự khoảng trắng nào có thể gây lỗi khi giải mã
+                        const cleanBase64 = result.file_content.replace(/\s/g, ''); 
+                        const byteCharacters = atob(cleanBase64); 
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        
+                        // Tạo URL và tải xuống
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = result.file_name;
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        // Thêm một độ trễ nhỏ trước khi thu hồi URL và xóa phần tử
+                        // Tăng thời gian chờ lên một chút để đảm bảo trình duyệt có đủ thời gian xử lý tải xuống
+                        setTimeout(() => {
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                        }, 500); // Tăng lên 500ms (0.5 giây)
+
+                        showMessage('Xuất kết quả hiện tại ra Excel thành công!', 'success');
+                    } catch (decodeError) {
+                        console.error('Lỗi giải mã Base64 hoặc tạo Blob:', decodeError);
+                        showMessage(`Lỗi xử lý file Excel: ${decodeError.message}. Vui lòng thử lại.`, 'danger');
+                    }
+                } else {
+                    showMessage('Lỗi: Phản hồi từ server không chứa nội dung file hoặc tên file.', 'danger');
+                }
+            } else {
+                const errorData = await response.json();
+                showMessage(`Lỗi khi xuất Excel: ${errorData.error || 'Không thể xuất file.'}`, 'danger');
+            }
+        } catch (error) {
+            console.error('Lỗi khi xuất Excel:', error);
+            showMessage(`Đã xảy ra lỗi khi xuất file Excel: ${error.message}.`, 'danger');
+        }
     });
 
-    // --- Xử lý nút Xuất PDF ---
-    exportPdfBtn.addEventListener('click', () => {
-        console.log('Nút "Xuất PDF" được nhấn.');
-        window.open('/export_pdf', '_blank');
+    // --- Xử lý nút Xuất PDF Kết quả hiện tại ---
+    exportResultsPdfBtn.addEventListener('click', async () => {
+        console.log('Nút "Xuất PDF Kết quả" được nhấn.');
+        if (calculatedCriteriaWeights.length === 0 || finalCalculatedBrandScores.length === 0) {
+            showMessage('Vui lòng tính toán kết quả trước khi xuất file PDF.', 'warning');
+            return;
+        }
+
+        try {
+            const dataToExport = {
+                criteria_weights: calculatedCriteriaWeights,
+                criteria_cr: currentCriteriaCR,
+                criteria_ci: currentCriteriaCI,
+                criteria_lambda_max: currentCriteriaLambdaMax,
+                criteria_consistent: currentCriteriaConsistent,
+                final_brand_scores: finalCalculatedBrandScores,
+                best_brand: bestBrandElement.textContent,
+                criteria_labels: criteriaLabels,
+                brand_labels: brandLabels,
+                brand_weights_per_criterion: lastCalculatedBrandWeightsPerCriterion // Gửi dữ liệu này!
+            };
+
+            // Capture chart images as base64 and their dimensions
+            const criteriaPieChartCanvas = document.getElementById('criteriaPieChart');
+            const brandsChartCanvas = document.getElementById('brandsChart');
+
+            if (criteriaPieChartCanvas && criteriaPieChartInstance) {
+                dataToExport.criteria_pie_chart_image = criteriaPieChartCanvas.toDataURL('image/png');
+                dataToExport.criteria_pie_chart_image_width = criteriaPieChartCanvas.width; // Use .width/.height for actual canvas resolution
+                dataToExport.criteria_pie_chart_image_height = criteriaPieChartCanvas.height;
+            }
+            if (brandsChartCanvas && brandsChartInstance) {
+                dataToExport.brands_bar_chart_image = brandsChartCanvas.toDataURL('image/png');
+                dataToExport.brands_bar_chart_image_width = brandsChartCanvas.width;
+                dataToExport.brands_bar_chart_image_height = brandsChartCanvas.height;
+            }
+
+            const response = await fetch('/export_current_pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToExport)
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'ket_qua_ahp.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showMessage('Xuất kết quả hiện tại ra PDF thành công!', 'success');
+            } else {
+                const errorData = await response.json();
+                showMessage(`Lỗi khi xuất PDF: ${errorData.error || 'Không thể xuất file.'}`, 'danger');
+            }
+        } catch (error) {
+            console.error('Lỗi khi xuất PDF:', error);
+            showMessage(`Đã xảy ra lỗi khi xuất file PDF: ${error.message}.`, 'danger');
+        }
     });
 
     function renderPagination(totalPages, currentPage) {
@@ -1113,10 +1423,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Gọi initializeMatrix cho tất cả các bảng khi tải trang để đảm bảo ô trống
     initializeMatrix('criteriaTable', criteriaLabels);
+    // Khởi tạo các bảng brandTable
     criteriaLabels.forEach((criterion, index) => {
-        initializeMatrix(`brandTable_${index}`, brandLabels);
+        const tableId = `brandTable_${index}`;
+        const tableElement = document.getElementById(tableId);
+        if (tableElement) { // Ensure the table element exists
+            initializeMatrix(tableId, brandLabels);
+        }
     });
 
+    // Vô hiệu hóa tất cả các nút chọn tiêu chí so sánh thương hiệu khi tải trang
+    // Chúng sẽ được kích hoạt dần khi ma trận tiêu chí và các ma trận thương hiệu trước đó nhất quán
+    document.querySelectorAll('.criterion-select-btn').forEach(button => {
+        button.disabled = true;
+        // Đảm bảo các input trong bảng thương hiệu cũng bị vô hiệu hóa ban đầu
+        const criterionIndex = parseInt(button.dataset.criterionIndex);
+        const tableId = `brandTable_${criterionIndex}`;
+        const tableElement = document.getElementById(tableId);
+        if (tableElement) {
+            tableElement.querySelectorAll('.ahp-input').forEach(input => {
+                input.disabled = true; // Vô hiệu hóa tất cả các ô input ban đầu
+            });
+        }
+    });
+
+
+    // Đảm bảo phần "criteria-evaluation" được hiển thị mặc định
     document.getElementById('criteria-evaluation').classList.add('active');
     document.querySelector('a[data-section="criteria-evaluation"]').classList.add('active');
 
