@@ -678,6 +678,7 @@ def export_pdf():
 def export_current_excel():
     """
     Xuất kết quả tính toán hiện tại ra file Excel.
+    Bao gồm ma trận tiêu chí và các ma trận thương hiệu thô.
     """
     data = request.json
     criteria_weights = data.get('criteria_weights', [])
@@ -689,9 +690,11 @@ def export_current_excel():
     best_brand = data.get('best_brand', 'N/A')
     criteria_labels = data.get('criteria_labels', [])
     brand_labels = data.get('brand_labels', [])
-    # Get brand weights per criterion for consolidated table
     brand_weights_per_criterion = data.get('brand_weights_per_criterion', {})
 
+    # NEW: Get raw matrices
+    criteria_matrix_raw = data.get('criteria_matrix_raw', [])
+    brand_matrices_raw = data.get('brand_matrices_raw', {})
 
     if not criteria_weights or not final_brand_scores:
         return jsonify({"error": "Không có dữ liệu kết quả để xuất."}), 400
@@ -704,93 +707,74 @@ def export_current_excel():
             # Define formats
             bold_format = workbook.add_format({'bold': True})
             center_bold_format = workbook.add_format({'bold': True, 'align': 'center'})
+            header_format = workbook.add_format({'bold': True, 'bg_color': '#DDEBF7', 'border': 1, 'align': 'center', 'valign': 'vcenter'}) # Light blue header
+            cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
             
-            # Sheet for Criteria Weights
-            sheet_criteria = workbook.add_worksheet('Trọng số Tiêu chí')
+            row_offset = 0 # Keep track of current row for writing
 
-            # Main title
-            sheet_criteria.merge_range('A1:B1', "Báo Cáo Kết Quả Tính Toán AHP Hiện Tại", center_bold_format)
+            # --- Main Report Title ---
+            sheet_main = workbook.add_worksheet('Báo cáo AHP')
+            sheet_main.merge_range(row_offset, 0, row_offset, 5, "BÁO CÁO KẾT QUẢ TÍNH TOÁN AHP HIỆN TẠI", center_bold_format)
+            row_offset += 2
+
+            # --- General Info ---
+            sheet_main.write(row_offset, 0, "Thời gian xuất báo cáo:", bold_format)
+            sheet_main.write(row_offset, 1, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            row_offset += 1
+            sheet_main.write(row_offset, 0, "Thương hiệu tốt nhất được khuyến nghị:", bold_format)
+            sheet_main.write(row_offset, 1, best_brand)
+            row_offset += 1
+            sheet_main.write(row_offset, 0, "Tỷ lệ nhất quán tiêu chí (CR):", bold_format)
+            sheet_main.write(row_offset, 1, f"{criteria_cr:.4f} ({'Nhất quán' if criteria_consistent else 'Không nhất quán'})")
+            row_offset += 1
+            sheet_main.write(row_offset, 0, "Chỉ số nhất quán (CI):", bold_format)
+            sheet_main.write(row_offset, 1, f"{criteria_ci:.4f}")
+            row_offset += 1
+            sheet_main.write(row_offset, 0, "Lambda Max (λ_max):", bold_format)
+            sheet_main.write(row_offset, 1, f"{criteria_lambda_max:.4f}")
+            row_offset += 2
+
+            # --- Criteria Weights Table ---
+            sheet_main.write(row_offset, 0, "Trọng số các tiêu chí:", bold_format)
+            row_offset += 1
+            sheet_main.write(row_offset, 0, "Tiêu chí", header_format)
+            sheet_main.write(row_offset, 1, "Trọng số", header_format)
             
-            # General Info
-            sheet_criteria.write('A3', "Thời gian xuất báo cáo:", bold_format)
-            sheet_criteria.write('B3', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            sheet_criteria.write('A4', "Thương hiệu tốt nhất được khuyến nghị:", bold_format)
-            sheet_criteria.write('B4', best_brand)
-            sheet_criteria.write('A5', "Tỷ lệ nhất quán tiêu chí (CR):", bold_format)
-            sheet_criteria.write('B5', f"{criteria_cr:.4f} ({'Nhất quán' if criteria_consistent else 'Không nhất quán'})")
-            sheet_criteria.write('A6', "Chỉ số nhất quán (CI):", bold_format)
-            sheet_criteria.write('B6', f"{criteria_ci:.4f}")
-            sheet_criteria.write('A7', "Lambda Max (λ_max):", bold_format)
-            sheet_criteria.write('B7', f"{criteria_lambda_max:.4f}")
-            
-            # Spacer row
-            sheet_criteria.write_row('A9', ["Trọng số các tiêu chí:"], bold_format)
-            
-            # Criteria Weights Table Headers
-            sheet_criteria.write('A10', "Tiêu chí", bold_format)
-            sheet_criteria.write('B10', "Trọng số", bold_format)
-            
-            # Write Criteria Weights Data
-            row_num = 10
-            criteria_data_for_autofit = [["Tiêu chí", "Trọng số"]] # Data to calculate autofit
+            criteria_data_for_autofit = [["Tiêu chí", "Trọng số"]]
             for i, weight in enumerate(criteria_weights):
-                row_num += 1
+                row_offset += 1
                 criterion_label = criteria_labels[i] if i < len(criteria_labels) else f"Tiêu chí không xác định {i}"
                 weight_str = f"{(weight * 100):.2f}%"
-                sheet_criteria.write(row_num, 0, criterion_label)
-                sheet_criteria.write(row_num, 1, weight_str)
+                sheet_main.write(row_offset, 0, criterion_label, cell_format)
+                sheet_main.write(row_offset, 1, weight_str, cell_format)
                 criteria_data_for_autofit.append([criterion_label, weight_str])
-            
-            # Autofit columns for criteria sheet
-            for col_idx in range(2):
-                max_len = 0
-                for r_data in criteria_data_for_autofit:
-                    if col_idx < len(r_data):
-                        max_len = max(max_len, len(str(r_data[col_idx])))
-                sheet_criteria.set_column(col_idx, col_idx, max_len + 2) # Add some padding
+            row_offset += 2
 
+            # --- Brand Scores Table ---
+            sheet_main.write(row_offset, 0, "Điểm số tổng hợp các thương hiệu:", bold_format)
+            row_offset += 1
+            sheet_main.write(row_offset, 0, "Thương hiệu", header_format)
+            sheet_main.write(row_offset, 1, "Điểm số", header_format)
 
-            # Sheet for Brand Scores
-            sheet_brands = workbook.add_worksheet('Điểm số Thương hiệu')
-
-            # Brand Scores Table Title
-            sheet_brands.merge_range('A1:B1', "Điểm số tổng hợp các thương hiệu:", center_bold_format)
-            
-            # Brand Scores Table Headers
-            sheet_brands.write('A3', "Thương hiệu", bold_format)
-            sheet_brands.write('B3', "Điểm số", bold_format)
-            
-            # Write Brand Scores Data
-            row_num = 3
-            brand_scores_data_for_autofit = [["Thương hiệu", "Điểm số"]] # Data to calculate autofit
+            brand_scores_data_for_autofit = [["Thương hiệu", "Điểm số"]]
             for bs in final_brand_scores:
-                row_num += 1
+                row_offset += 1
                 if isinstance(bs, list) and len(bs) == 2:
                     score_str = f"{bs[1]:.4f}"
-                    sheet_brands.write(row_num, 0, bs[0])
-                    sheet_brands.write(row_num, 1, score_str)
+                    sheet_main.write(row_offset, 0, bs[0], cell_format)
+                    sheet_main.write(row_offset, 1, score_str, cell_format)
                     brand_scores_data_for_autofit.append([bs[0], score_str])
+            row_offset += 2
+
+            # --- Consolidated Brand Weights per Criterion Table ---
+            sheet_main.write(row_offset, 0, "Tổng hợp trọng số thương hiệu theo từng tiêu chí:", bold_format)
+            row_offset += 1
             
-            # Autofit columns for brands sheet
-            for col_idx in range(2):
-                max_len = 0
-                for r_data in brand_scores_data_for_autofit:
-                    if col_idx < len(r_data):
-                        max_len = max(max_len, len(str(r_data[col_idx])))
-                sheet_brands.set_column(col_idx, col_idx, max_len + 2) # Add some padding
-
-            # Sheet for Consolidated Brand Weights per Criterion
-            sheet_consolidated = workbook.add_worksheet('Tổng hợp Trọng số Thương hiệu')
-            sheet_consolidated.merge_range('A1:Z1', "Tổng hợp trọng số thương hiệu theo từng tiêu chí:", center_bold_format) # Use Z to cover enough columns
-
-            # Prepare headers for the consolidated table
             consolidated_headers = ["Thương hiệu"] + criteria_labels
-            sheet_consolidated.write_row('A3', consolidated_headers, bold_format)
+            sheet_main.write_row(row_offset, 0, consolidated_headers, header_format)
+            row_offset += 1
 
-            # Prepare data for the consolidated table and for autofit
             consolidated_data_for_autofit = [consolidated_headers]
-            current_row_consolidated = 3 # Start writing data from row 4 (index 3)
-
             for brand_index, brand_name in enumerate(brand_labels):
                 row_values = [brand_name]
                 for criterion_name in criteria_labels:
@@ -799,27 +783,61 @@ def export_current_excel():
                         weight = criterion_data['weights'][brand_index]
                         row_values.append(f"{(weight * 100):.2f}%")
                     else:
-                        row_values.append("-") # Placeholder if data is missing
-
-                sheet_consolidated.write_row(current_row_consolidated, 0, row_values)
+                        row_values.append("-") 
+                sheet_main.write_row(row_offset, 0, row_values, cell_format)
                 consolidated_data_for_autofit.append(row_values)
-                current_row_consolidated += 1
-            
-            # Autofit columns for the consolidated sheet
-            for col_idx in range(len(consolidated_headers)):
+                row_offset += 1
+            row_offset += 2
+
+            # Autofit columns for the main sheet
+            all_data_for_autofit = criteria_data_for_autofit + brand_scores_data_for_autofit + consolidated_data_for_autofit
+            for col_idx in range(len(consolidated_headers)): # Use max possible columns
                 max_len = 0
-                for r_data in consolidated_data_for_autofit:
+                for r_data in all_data_for_autofit:
                     if col_idx < len(r_data):
                         max_len = max(max_len, len(str(r_data[col_idx])))
-                sheet_consolidated.set_column(col_idx, col_idx, max_len + 2) # Add some padding
+                sheet_main.set_column(col_idx, col_idx, max_len + 2) # Add some padding
 
+            # --- Raw Criteria Comparison Matrix ---
+            if criteria_matrix_raw:
+                sheet_main.write(row_offset, 0, "Ma trận so sánh cặp Tiêu chí:", bold_format)
+                row_offset += 1
+
+                criteria_matrix_headers = ["Tiêu chí"] + criteria_labels
+                sheet_main.write_row(row_offset, 0, criteria_matrix_headers, header_format)
+                row_offset += 1
+
+                for r_idx, row_data in enumerate(criteria_matrix_raw):
+                    row_to_write = [criteria_labels[r_idx]] + [f"{val:.2f}" for val in row_data]
+                    sheet_main.write_row(row_offset, 0, row_to_write, cell_format)
+                    row_offset += 1
+                row_offset += 2 # Spacer
+
+            # --- Raw Brand Comparison Matrices per Criterion ---
+            if brand_matrices_raw:
+                sheet_main.write(row_offset, 0, "Ma trận so sánh cặp Thương hiệu theo Tiêu chí:", bold_format)
+                row_offset += 1
+
+                for crit_idx, criterion_name in enumerate(criteria_labels):
+                    matrix = brand_matrices_raw.get(criterion_name)
+                    if matrix:
+                        sheet_main.write(row_offset, 0, f"Tiêu chí: {criterion_name}", bold_format)
+                        row_offset += 1
+
+                        brand_matrix_headers = ["Thương hiệu"] + brand_labels
+                        sheet_main.write_row(row_offset, 0, brand_matrix_headers, header_format)
+                        row_offset += 1
+
+                        for r_idx, row_data in enumerate(matrix):
+                            row_to_write = [brand_labels[r_idx]] + [f"{val:.2f}" for val in row_data]
+                            sheet_main.write_row(row_offset, 0, row_to_write, cell_format)
+                            row_offset += 1
+                        row_offset += 2 # Spacer between brand matrices
 
         output.seek(0) 
 
-        # Mã hóa nội dung file Excel sang Base64
         excel_base64 = base64.b64encode(output.getvalue()).decode('utf-8')
         
-        # Trả về JSON chứa dữ liệu Base64 và tên file
         return jsonify({
             "file_content": excel_base64,
             "file_name": "ket_qua_ahp.xlsx",
@@ -827,7 +845,6 @@ def export_current_excel():
         })
     except Exception as e:
         print(f"Error exporting to Excel: {e}")
-        # Trả về JSON lỗi thay vì HTML
         return jsonify({"error": f"Đã xảy ra lỗi khi xuất file Excel: {str(e)}"}), 500
 
 # NEW: Endpoint để xuất kết quả hiện tại ra file PDF
@@ -835,6 +852,7 @@ def export_current_excel():
 def export_current_pdf():
     """
     Xuất kết quả tính toán hiện tại ra file PDF.
+    Bao gồm ma trận tiêu chí và các ma trận thương hiệu thô.
     """
     data = request.json
     criteria_weights = data.get('criteria_weights', [])
@@ -846,17 +864,21 @@ def export_current_pdf():
     best_brand = data.get('best_brand', 'N/A')
     criteria_labels = data.get('criteria_labels', [])
     brand_labels = data.get('brand_labels', [])
-    brand_weights_per_criterion = data.get('brand_weights_per_criterion', {}) # Get this data
+    brand_weights_per_criterion = data.get('brand_weights_per_criterion', {}) 
+
+    # NEW: Get raw matrices
+    criteria_matrix_raw = data.get('criteria_matrix_raw', [])
+    brand_matrices_raw = data.get('brand_matrices_raw', {})
 
     # Get chart images from request data
     criteria_pie_chart_image_b64 = data.get('criteria_pie_chart_image', None)
     brands_bar_chart_image_b64 = data.get('brands_bar_chart_image', None)
 
     # NEW: Get chart dimensions
-    criteria_pie_chart_image_width = data.get('criteria_pie_chart_image_width', 400) # Default to 400
-    criteria_pie_chart_image_height = data.get('criteria_pie_chart_image_height', 250) # Default to 250
-    brands_bar_chart_image_width = data.get('brands_bar_chart_image_width', 400) # Default to 400
-    brands_bar_chart_image_height = data.get('brands_bar_chart_image_height', 250) # Default to 250
+    criteria_pie_chart_image_width = data.get('criteria_pie_chart_image_width', 400) 
+    criteria_pie_chart_image_height = data.get('criteria_pie_chart_image_height', 250) 
+    brands_bar_chart_image_width = data.get('brands_bar_chart_image_width', 400) 
+    brands_bar_chart_image_height = data.get('brands_bar_chart_image_height', 250) 
 
     # Scaling factor for charts
     chart_scale_factor = 0.3 # Adjust this value to make charts smaller or larger
@@ -865,7 +887,7 @@ def export_current_pdf():
         return jsonify({"error": "Không có dữ liệu kết quả để xuất."}), 400
 
     output = io.BytesIO()
-    try: # Added try-except block here
+    try: 
         doc = SimpleDocTemplate(output, pagesize=A4,
                                  leftMargin=50, rightMargin=50,
                                  topMargin=50, bottomMargin=50)
@@ -873,9 +895,13 @@ def export_current_pdf():
         styles = getSampleStyleSheet()
 
         styles.add(ParagraphStyle(name='VietnameseNormal', fontName='DejaVuSans', fontSize=10, leading=12, alignment=TA_LEFT))
+        styles.add(ParagraphStyle(name='VietnameseNormalCenter', fontName='DejaVuSans', fontSize=10, leading=12, alignment=TA_CENTER))
         styles.add(ParagraphStyle(name='VietnameseHeading1', fontName='DejaVuSans-Bold', fontSize=16, leading=18, alignment=TA_CENTER, spaceAfter=8))
         styles.add(ParagraphStyle(name='VietnameseHeading2', fontName='DejaVuSans-Bold', fontSize=12, leading=14, alignment=TA_LEFT, spaceBefore=4, spaceAfter=4))
-        
+        styles.add(ParagraphStyle(name='VietnameseHeading2Center', fontName='DejaVuSans-Bold', fontSize=12, leading=14, alignment=TA_CENTER, spaceBefore=4, spaceAfter=4))
+        styles.add(ParagraphStyle(name='VietnameseTableContent', fontName='DejaVuSans', fontSize=9, leading=10, alignment=TA_CENTER))
+        styles.add(ParagraphStyle(name='VietnameseTableHeader', fontName='DejaVuSans-Bold', fontSize=9, leading=10, alignment=TA_CENTER))
+
         elements = []
 
         elements.append(Paragraph("Báo Cáo Kết Quả Tính Toán AHP Hiện Tại", styles['VietnameseHeading1']))
@@ -890,22 +916,30 @@ def export_current_pdf():
 
         if criteria_weights:
             elements.append(Paragraph("Trọng số các tiêu chí:", styles['VietnameseHeading2']))
-            criteria_data = [["Tiêu chí", "Trọng số"]]
+            criteria_data = [
+                [Paragraph("Tiêu chí", styles['VietnameseTableHeader']), Paragraph("Trọng số", styles['VietnameseTableHeader'])]
+            ]
             for j, weight in enumerate(criteria_weights):
                 if j < len(criteria_labels):
-                    criteria_data.append([criteria_labels[j], f"{weight*100:.2f}%"])
+                    criteria_data.append([
+                        Paragraph(criteria_labels[j], styles['VietnameseTableContent']), 
+                        Paragraph(f"{weight*100:.2f}%", styles['VietnameseTableContent'])
+                    ])
                 else:
-                    criteria_data.append([f"Tiêu chí không xác định {j}", f"{weight*100:.2f}%"])
+                    criteria_data.append([
+                        Paragraph(f"Tiêu chí không xác định {j}", styles['VietnameseTableContent']), 
+                        Paragraph(f"{weight*100:.2f}%", styles['VietnameseTableContent'])
+                    ])
             
             table_criteria = Table(criteria_data, colWidths=[doc.width/2.0, doc.width/2.0])
             table_criteria.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DDEBF7')), # Light blue header
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans-Bold'),
                 ('FONTNAME', (0, 1), (-1, -1), 'DejaVuSans'),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             elements.append(table_criteria)
@@ -932,20 +966,25 @@ def export_current_pdf():
 
         if final_brand_scores:
             elements.append(Paragraph("Điểm số tổng hợp các thương hiệu:", styles['VietnameseHeading2']))
-            brand_score_data = [["Thương hiệu", "Điểm số"]]
+            brand_score_data = [
+                [Paragraph("Thương hiệu", styles['VietnameseTableHeader']), Paragraph("Điểm số", styles['VietnameseTableHeader'])]
+            ]
             for bs in final_brand_scores:
                 if isinstance(bs, list) and len(bs) == 2:
-                    brand_score_data.append([bs[0], f"{bs[1]:.4f}"])
+                    brand_score_data.append([
+                        Paragraph(bs[0], styles['VietnameseTableContent']), 
+                        Paragraph(f"{bs[1]:.4f}", styles['VietnameseTableContent'])
+                    ])
                 
             table_brands = Table(brand_score_data, colWidths=[doc.width/2.0, doc.width/2.0])
             table_brands.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DDEBF7')), # Light blue header
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans-Bold'),
                 ('FONTNAME', (0, 1), (-1, -1), 'DejaVuSans'),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             elements.append(table_brands)
@@ -974,43 +1013,100 @@ def export_current_pdf():
             elements.append(Paragraph("Tổng hợp trọng số thương hiệu theo từng tiêu chí:", styles['VietnameseHeading2']))
             
             # Prepare table headers
-            consolidated_table_headers = ["Thương hiệu"] + criteria_labels
+            consolidated_table_headers = [Paragraph("Thương hiệu", styles['VietnameseTableHeader'])] + [Paragraph(label, styles['VietnameseTableHeader']) for label in criteria_labels]
             
             # Prepare table data
             consolidated_table_data = [consolidated_table_headers]
             for brand_name in brand_labels:
-                row_values = [brand_name]
+                row_values = [Paragraph(brand_name, styles['VietnameseTableContent'])]
                 for criterion_name in criteria_labels:
                     criterion_data = brand_weights_per_criterion.get(criterion_name)
                     if criterion_data and criterion_data.get('weights') and brand_name in BRANDS:
                         brand_index = BRANDS.index(brand_name)
                         if len(criterion_data['weights']) > brand_index:
                             weight = criterion_data['weights'][brand_index]
-                            row_values.append(f"{(weight * 100):.2f}%")
+                            row_values.append(Paragraph(f"{(weight * 100):.2f}%", styles['VietnameseTableContent']))
                         else:
-                            row_values.append("-") # Fallback if brand index is out of bounds
+                            row_values.append(Paragraph("-", styles['VietnameseTableContent'])) # Fallback if brand index is out of bounds
                     else:
-                        row_values.append("-") # Fallback if criterion data is missing
+                        row_values.append(Paragraph("-", styles['VietnameseTableContent'])) # Fallback if criterion data is missing
                 consolidated_table_data.append(row_values)
             
-            # Calculate column widths dynamically
-            # Give more width to the first column (Brand) and distribute the rest
             num_cols = len(consolidated_table_headers)
             col_widths = [doc.width * 0.2] + [doc.width * 0.8 / (num_cols - 1)] * (num_cols - 1) if num_cols > 1 else [doc.width]
 
             table_consolidated = Table(consolidated_table_data, colWidths=col_widths)
             table_consolidated.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DDEBF7')), # Light blue header
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans-Bold'),
                 ('FONTNAME', (0, 1), (-1, -1), 'DejaVuSans'),
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.lightsteelblue), # A different background color
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             elements.append(table_consolidated)
             elements.append(Spacer(1, 0.1 * inch))
+
+        # --- NEW: Raw Criteria Comparison Matrix in PDF ---
+        if criteria_matrix_raw:
+            elements.append(Paragraph("Ma trận so sánh cặp Tiêu chí:", styles['VietnameseHeading2']))
+            
+            criteria_matrix_pdf_data = [[Paragraph(label, styles['VietnameseTableHeader']) for label in ["Tiêu chí"] + criteria_labels]]
+            for r_idx, row_data in enumerate(criteria_matrix_raw):
+                row_for_pdf = [Paragraph(criteria_labels[r_idx], styles['VietnameseTableContent'])] + [Paragraph(f"{val:.2f}", styles['VietnameseTableContent']) for val in row_data]
+                criteria_matrix_pdf_data.append(row_for_pdf)
+            
+            # Calculate column widths dynamically for criteria matrix
+            num_cols_criteria = len(criteria_labels) + 1
+            col_widths_criteria = [doc.width * 0.2] + [doc.width * 0.8 / len(criteria_labels)] * len(criteria_labels)
+
+            table_criteria_raw = Table(criteria_matrix_pdf_data, colWidths=col_widths_criteria)
+            table_criteria_raw.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FCE4D6')), # Light orange header
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans-Bold'),
+                ('FONTNAME', (0, 1), (-1, -1), 'DejaVuSans'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            elements.append(table_criteria_raw)
+            elements.append(Spacer(1, 0.1 * inch))
+
+        # --- NEW: Raw Brand Comparison Matrices per Criterion in PDF ---
+        if brand_matrices_raw:
+            elements.append(Paragraph("Ma trận so sánh cặp Thương hiệu theo Tiêu chí:", styles['VietnameseHeading2']))
+            
+            for crit_idx, criterion_name in enumerate(criteria_labels):
+                matrix = brand_matrices_raw.get(criterion_name)
+                if matrix:
+                    elements.append(Paragraph(f"<b>Tiêu chí: {criterion_name}</b>", styles['VietnameseNormal']))
+                    
+                    brand_matrix_pdf_data = [[Paragraph(label, styles['VietnameseTableHeader']) for label in ["Thương hiệu"] + brand_labels]]
+                    for r_idx, row_data in enumerate(matrix):
+                        row_for_pdf = [Paragraph(brand_labels[r_idx], styles['VietnameseTableContent'])] + [Paragraph(f"{val:.2f}", styles['VietnameseTableContent']) for val in row_data]
+                        brand_matrix_pdf_data.append(row_for_pdf)
+                    
+                    # Calculate column widths dynamically for brand matrices
+                    num_cols_brand = len(brand_labels) + 1
+                    col_widths_brand = [doc.width * 0.2] + [doc.width * 0.8 / len(brand_labels)] * len(brand_labels)
+
+                    table_brand_raw = Table(brand_matrix_pdf_data, colWidths=col_widths_brand)
+                    table_brand_raw.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FFF2CC')), # Light yellow header
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans-Bold'),
+                        ('FONTNAME', (0, 1), (-1, -1), 'DejaVuSans'),
+                        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                    ]))
+                    elements.append(table_brand_raw)
+                    elements.append(Spacer(1, 0.1 * inch))
 
 
         doc.build(elements)
@@ -1019,9 +1115,9 @@ def export_current_pdf():
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = 'attachment; filename=ket_qua_ahp.pdf'
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate' # Thêm headers này
-        response.headers['Pragma'] = 'no-cache' # Thêm headers này
-        response.headers['Expires'] = '0' # Thêm headers này
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate' 
+        response.headers['Pragma'] = 'no-cache' 
+        response.headers['Expires'] = '0' 
         return response
     except Exception as e:
         print(f"Error exporting to PDF: {e}")

@@ -74,6 +74,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // NEW: Biến toàn cục để lưu trữ brand_weights_per_criterion sau khi tính toán
     let lastCalculatedBrandWeightsPerCriterion = {};
+    // NEW: Biến toàn cục để lưu trữ raw criteria matrix và raw brand matrices
+    let currentCriteriaMatrixRaw = null;
+    let currentBrandMatricesRaw = {};
 
     // Biến trạng thái để theo dõi tính nhất quán
     let isCriteriaMatrixConsistent = false;
@@ -217,23 +220,24 @@ document.addEventListener('DOMContentLoaded', function() {
         if (row < col) {
             let value = parseFloat(input.value);
 
-            // Nếu input trống hoặc không phải là số hợp lệ
+            // If input is empty or not a valid number
             if (input.value.trim() === '' || isNaN(value)) {
+                input.classList.add('is-invalid');
+                showMessage('Giá trị không hợp lệ. Vui lòng nhập một số.', 'danger');
                 const inverseInput = inputs[col * labelsLength + row];
                 if (inverseInput) {
-                    inverseInput.value = ''; // Xóa ô nghịch đảo
+                    inverseInput.value = ''; // Clear inverse as well
                 }
-                // Không đặt giá trị mặc định ở đây. Hàm getMatrix sẽ xử lý validation đầy đủ.
-            } else {
-                // Nếu là số hợp lệ, kiểm tra phạm vi 1-9
-                if (value < 1) {
-                    value = 1;
-                    input.value = 1;
-                } else if (value > 9) {
-                    value = 9;
-                    input.value = 9;
+            } else if (value <= 0 || value > 9) { // Check for range 1-9, excluding 0 and negative
+                input.classList.add('is-invalid');
+                showMessage('Giá trị phải nằm trong khoảng từ 1 đến 9.', 'danger');
+                const inverseInput = inputs[col * labelsLength + row];
+                if (inverseInput) {
+                    inverseInput.value = ''; // Clear inverse as well
                 }
-                // Cập nhật giá trị nghịch đảo
+            } else { // Valid input
+                input.classList.remove('is-invalid');
+                // Update inverse value
                 const inverseInput = inputs[col * labelsLength + row];
                 if (inverseInput) {
                     inverseInput.value = (1 / value).toFixed(2);
@@ -283,58 +287,73 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initializeMatrix('criteriaTable', criteriaLabels);
 
-    // --- Hàm đọc ma trận từ DOM ---
+    // --- Hàm đọc ma trận từ DOM (ĐÃ SỬA LỖI) ---
     function getMatrix(tableId, labelsLength) {
-        const matrix = [];
+        const matrix = Array(labelsLength).fill(null).map(() => Array(labelsLength).fill(0)); // Initialize with 0s
         const inputs = document.getElementById(tableId).querySelectorAll('.ahp-input');
         let allInputsValid = true;
         let errorMessage = '';
-        let firstInvalidInput = null; // Để focus vào ô lỗi đầu tiên
+        let firstInvalidInput = null;
 
-        // Reset invalid class for all inputs in the current table
-        inputs.forEach(input => input.classList.remove('is-invalid'));
+        inputs.forEach(input => input.classList.remove('is-invalid')); // Clear previous invalid states
 
         for (let i = 0; i < labelsLength; i++) {
-            const row = [];
             for (let j = 0; j < labelsLength; j++) {
-                const input = inputs[i * labelsLength + j];
-                let value;
+                if (i === j) {
+                    matrix[i][j] = 1;
+                } else if (i < j) { // Upper triangle: user editable
+                    const input = inputs[i * labelsLength + j];
+                    let value = parseFloat(input.value);
 
-                // Chỉ kiểm tra các ô mà người dùng có thể chỉnh sửa (phần tam giác trên của ma trận)
-                if (i < j) { 
-                    if (input.value.trim() === '' || isNaN(parseFloat(input.value))) {
+                    if (input.value.trim() === '' || isNaN(value)) {
                         allInputsValid = false;
                         errorMessage = `Giá trị tại hàng ${i + 1}, cột ${j + 1} không hợp lệ hoặc để trống. Vui lòng nhập số.`;
                         input.classList.add('is-invalid');
                         if (!firstInvalidInput) firstInvalidInput = input;
-                        break; 
-                    }
-                    value = parseFloat(input.value);
-                    if (value < 1 || value > 9) {
+                    } else if (value <= 0 || value > 9) { // Explicitly check range 1-9
                         allInputsValid = false;
                         errorMessage = `Giá trị tại hàng ${i + 1}, cột ${j + 1} phải nằm trong khoảng từ 1 đến 9.`;
                         input.classList.add('is-invalid');
                         if (!firstInvalidInput) firstInvalidInput = input;
-                        break; 
+                    } else {
+                        matrix[i][j] = value;
                     }
-                } else if (i === j) {
-                    // Đường chéo chính luôn là 1 và không cần kiểm tra
-                    value = 1;
-                } else { // i > j, các ô nghịch đảo, giá trị được đặt bởi ô đối xứng
-                    value = parseFloat(input.value);
+                } else { // Lower triangle: calculate inverse from already populated symmetric value
+                    // This relies on (j,i) being processed before (i,j) which is true for i>j.
+                    // The value matrix[j][i] should already be valid from the i<j loop.
+                    if (matrix[j][i] === 0 || isNaN(matrix[j][i]) || !isFinite(matrix[j][i])) {
+                         // This would only happen if the input at (j,i) was invalid and `handleMatrixInputChange`
+                         // somehow didn't prevent it, or if it was cleared. This is a fallback error.
+                         allInputsValid = false;
+                         errorMessage = `Lỗi nội bộ: Giá trị đối xứng tại hàng ${j + 1}, cột ${i + 1} không hợp lệ.`;
+                         const currentInput = inputs[i * labelsLength + j]; // This is the disabled input
+                         if (currentInput) {
+                             currentInput.classList.add('is-invalid');
+                             if (!firstInvalidInput) firstInvalidInput = currentInput;
+                         }
+                         matrix[i][j] = 0; // Assign a placeholder invalid value
+                    } else {
+                        matrix[i][j] = 1 / matrix[j][i];
+                    }
                 }
-                row.push(value);
+                // If an error is found in the current row, no need to continue for this row's columns
+                // Only break inner loop if `allInputsValid` is false AND we've already found the first invalid input.
+                // This ensures all inputs in the current row get marked visually.
+                if (!allInputsValid && firstInvalidInput && j === labelsLength -1) { // If last column in row and error found
+                    break;
+                }
             }
-            if (!allInputsValid) break; 
-            matrix.push(row);
+            if (!allInputsValid && firstInvalidInput) { // If an error is detected for the current matrix
+                 break; // Break outer loop as well
+            }
         }
 
         if (!allInputsValid) {
             showMessage(errorMessage, 'danger');
             if (firstInvalidInput) {
-                firstInvalidInput.focus(); // Focus vào ô lỗi đầu tiên
+                firstInvalidInput.focus();
             }
-            return null; // Trả về null để báo hiệu lỗi
+            return null;
         }
         
         console.log(`Đã lấy ma trận từ ${tableId}:`, matrix);
@@ -408,15 +427,18 @@ document.addEventListener('DOMContentLoaded', function() {
         crElement, crMessageElement, ciElement, lambdaMaxElement, consistencyBoxElement, 
         cr, ci, lambda_max, consistent, isBrandCheckBtn = false
     ) {
-        crElement.textContent = cr.toFixed(4);
-        ciElement.textContent = ci.toFixed(4);
-        lambdaMaxElement.textContent = lambda_max.toFixed(4);
+        // Add null checks before setting textContent or innerHTML
+        if (crElement) crElement.textContent = cr.toFixed(4);
+        if (ciElement) ciElement.textContent = ci.toFixed(4);
+        if (lambdaMaxElement) lambdaMaxElement.textContent = lambda_max.toFixed(4);
 
         let message = '';
         if (consistent) {
             message = 'Đạt yêu cầu (<span class="text-success fw-bold">nhất quán</span>).';
-            consistencyBoxElement.classList.remove('alert-warning', 'alert-danger');
-            consistencyBoxElement.classList.add('alert-success');
+            if (consistencyBoxElement) {
+                consistencyBoxElement.classList.remove('alert-warning', 'alert-danger');
+                consistencyBoxElement.classList.add('alert-success');
+            }
             // Cập nhật màu nút kiểm tra nhất quán chính
             if (!isBrandCheckBtn) { // Nếu đây là nút kiểm tra tiêu chí
                 checkCriteriaConsistencyBtn.classList.remove('btn-primary', 'btn-danger');
@@ -424,16 +446,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             message = 'Không đạt yêu cầu (<span class="text-danger fw-bold">không nhất quán</span>). Vui lòng điều chỉnh lại các giá trị!';
-            consistencyBoxElement.classList.remove('alert-success', 'alert-danger');
-            consistencyBoxElement.classList.add('alert-warning');
+            if (consistencyBoxElement) {
+                consistencyBoxElement.classList.remove('alert-success', 'alert-danger');
+                consistencyBoxElement.classList.add('alert-warning');
+            }
             // Cập nhật màu nút kiểm tra nhất quán chính
             if (!isBrandCheckBtn) { // Nếu đây là nút kiểm tra tiêu chí
                 checkCriteriaConsistencyBtn.classList.remove('btn-primary', 'btn-success');
                 checkCriteriaConsistencyBtn.classList.add('btn-danger');
             }
         }
-        crMessageElement.innerHTML = message;
-        consistencyBoxElement.style.display = 'flex'; // Sử dụng flex để căn chỉnh ngang
+        if (crMessageElement) crMessageElement.innerHTML = message;
+        if (consistencyBoxElement) consistencyBoxElement.style.display = 'flex'; // Sử dụng flex để căn chỉnh ngang
     }
 
 
@@ -463,6 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
             currentCriteriaCI = ci;
             currentCriteriaLambdaMax = lambda_max;
             currentCriteriaConsistent = result.consistent;
+            currentCriteriaMatrixRaw = criteriaMatrix; // Store the raw matrix
 
             // Cập nhật các giá trị vào các phần tử HTML mới
             updateConsistencyDisplay(
@@ -515,14 +540,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Lỗi khi kiểm tra nhất quán tiêu chí:', error);
-            consistencyDetailBox.style.display = 'flex'; // Vẫn hiển thị hộp để báo lỗi
-            consistencyDetailBox.classList.remove('alert-warning', 'alert-danger');
-            consistencyDetailBox.classList.add('alert-danger');
-            consistencyDetailBox.innerHTML = `
-                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3 fs-3 text-primary"></i>
-                <div>Lỗi: ${error.message}. Vui lòng kiểm tra lại dữ liệu nhập.</div>`;
+            if (consistencyDetailBox) { // Null check
+                consistencyDetailBox.style.display = 'flex'; // Vẫn hiển thị hộp để báo lỗi
+                consistencyDetailBox.classList.remove('alert-warning', 'alert-danger');
+                consistencyDetailBox.classList.add('alert-danger');
+                consistencyDetailBox.innerHTML = `
+                    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3 fs-3 text-primary"></i>
+                    <div>Lỗi: ${error.message}. Vui lòng kiểm tra lại dữ liệu nhập.</div>`;
+            }
             
-            detailedConsistencyTableContainer.style.display = 'none'; // Ẩn bảng chi tiết nếu có lỗi
+            if (detailedConsistencyTableContainer) detailedConsistencyTableContainer.style.display = 'none'; // Ẩn bảng chi tiết nếu có lỗi
             
             isCriteriaMatrixConsistent = false; // Đặt lại trạng thái không nhất quán
             checkOverallCalculationReadiness(); // Kiểm tra lại trạng thái nút Calculate
@@ -535,6 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
             criterionButtonsContainer.querySelectorAll('.criterion-select-btn').forEach(btn => {
                 btn.disabled = true;
             });
+            currentCriteriaMatrixRaw = null; // Clear raw matrix on error
         }
     });
 
@@ -564,6 +592,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.disabled = true;
                 updateCriterionButtonIcon(parseInt(btn.dataset.criterionIndex), false);
             });
+            // Cập nhật ma trận thô sau khi nhập file
+            currentCriteriaMatrixRaw = result.matrix;
         } catch (error) {
             console.error('Lỗi khi nhập ma trận tiêu chí từ file:', error);
             showMessage(`Lỗi nhập file: ${error.message}`, 'danger');
@@ -578,6 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.disabled = true;
                 updateCriterionButtonIcon(parseInt(btn.dataset.criterionIndex), false);
             });
+            currentCriteriaMatrixRaw = null; // Clear raw matrix on error
         }
     });
 
@@ -641,6 +672,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateMatrixUI(`brandTable_${criterionIndex}`, result.matrix, brandLabels.length);
                     // Cập nhật ma trận trong bộ nhớ sau khi nhập thành công
                     brandsComparisonMatrices[criterionIndex] = result.matrix;
+                    // Store the raw matrix in currentBrandMatricesRaw
+                    currentBrandMatricesRaw[criteriaLabels[criterionIndex]] = JSON.parse(JSON.stringify(result.matrix));
+
                     event.target.value = ''; // Xóa file đã chọn
                     // Sau khi nhập file, reset trạng thái nhất quán của ma trận này
                     brandMatricesConsistencyStatus[criterionIndex] = false;
@@ -685,6 +719,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                         brandMatricesConsistencyStatus[i] = false;
                     }
+                    delete currentBrandMatricesRaw[criteriaLabels[criterionIndex]]; // Clear raw matrix on error
                 }
             });
         }
@@ -738,11 +773,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Cập nhật bảng chi tiết
                 updateDetailedConsistencyTable(brandDetailedConsistencyTableBody, brandLabels, normalizedMatrix, sumWeightsRow, result.weights, consistencyVector);
-                brandDetailedConsistencyTableContainer.style.display = 'block';
+                if (brandDetailedConsistencyTableContainer) brandDetailedConsistencyTableContainer.style.display = 'block';
 
                 // Cập nhật trạng thái nhất quán của ma trận thương hiệu này
                 brandMatricesConsistencyStatus[criterionIndex] = consistent;
                 checkOverallCalculationReadiness(); // Kiểm tra lại trạng thái nút Calculate
+                
+                // Store the raw matrix
+                currentBrandMatricesRaw[criteriaLabels[criterionIndex]] = brandMatrix;
+
 
                 // Cập nhật màu nút kiểm tra brand
                 if (consistent) {
@@ -768,6 +807,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                         brandMatricesConsistencyStatus[i] = false;
                     }
+                    delete currentBrandMatricesRaw[criteriaLabels[criterionIndex]]; // Clear raw matrix on error
                 }
                 // Cập nhật dấu tích trên nút tiêu chí tương ứng
                 updateCriterionButtonIcon(criterionIndex, consistent);
@@ -806,6 +846,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     brandMatricesConsistencyStatus[i] = false;
                 }
+                delete currentBrandMatricesRaw[criteriaLabels[criterionIndex]]; // Clear raw matrix on error
             }
         });
     });
@@ -863,6 +904,9 @@ document.addEventListener('DOMContentLoaded', function() {
             brandsComparisonMatrices[criterionIndex][col][row] = 1 / parseFloat(input.value);
             console.log(`Ma trận thương hiệu cho tiêu chí ${criterionIndex} cập nhật:`, brandsComparisonMatrices[criterionIndex]);
             
+            // NEW: Update the raw matrix in currentBrandMatricesRaw
+            currentBrandMatricesRaw[criteriaLabels[criterionIndex]] = JSON.parse(JSON.stringify(brandsComparisonMatrices[criterionIndex]));
+
             // Khi người dùng thay đổi giá trị, reset trạng thái nhất quán của ma trận này
             brandMatricesConsistencyStatus[criterionIndex] = false;
             checkOverallCalculationReadiness();
@@ -1035,6 +1079,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // getMatrix đã hiển thị showMessage, chỉ cần return
             return;
         }
+        currentCriteriaMatrixRaw = criteriaMatrix; // Store the raw criteria matrix
 
         const brandMatricesDataToSend = {};
         let allBrandMatricesValid = true;
@@ -1046,6 +1091,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 break; 
             }
             brandMatricesDataToSend[criteriaLabels[i]] = currentBrandMatrix;
+            // Store the raw brand matrices
+            currentBrandMatricesRaw[criteriaLabels[i]] = currentBrandMatrix;
         }
 
         if (!allBrandMatricesValid) {
@@ -1068,9 +1115,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     li.innerHTML = `<span>${criteriaLabels[index]}:</span> <span class="badge bg-primary">${(weight * 100).toFixed(2)}%</span>`;
                     criteriaWeightsList.appendChild(li);
                 });
-                criteriaCRSpan.textContent = data.criteria_cr.toFixed(4);
+                if (criteriaCRSpan) criteriaCRSpan.textContent = data.criteria_cr.toFixed(4); // Null check
                 const consistencyMsg = data.criteria_consistent ? '<span class="text-success fw-bold">Nhất quán (CR < 0.1)</span>' : '<span class="text-danger fw-bold">Không nhất quán (CR >= 0.1) - Vui lòng xem xét lại đánh giá của bạn!</span>';
-                criteriaConsistencyMessage.innerHTML = consistencyMsg;
+                if (criteriaConsistencyMessage) criteriaConsistencyMessage.innerHTML = consistencyMsg; // Null check
                 updateCriteriaPieChart(data.criteria_weights);
 
                 // Update stored criteria data after successful calculation
@@ -1091,14 +1138,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Populate the consolidated brand weights table
             const consolidatedTableHead = consolidatedBrandWeightsTable.querySelector('thead tr');
             const consolidatedTableBody = consolidatedBrandWeightsTable.querySelector('tbody');
-            consolidatedTableHead.innerHTML = '<th>Thương hiệu</th>'; // Reset header
-            consolidatedTableBody.innerHTML = ''; // Clear previous body
+            if (consolidatedTableHead) consolidatedTableHead.innerHTML = '<th>Thương hiệu</th>'; // Reset header
+            if (consolidatedTableBody) consolidatedTableBody.innerHTML = ''; // Clear previous body
 
             // Add criterion headers
             criteriaLabels.forEach(label => {
-                const th = document.createElement('th');
-                th.textContent = label;
-                consolidatedTableHead.appendChild(th);
+                if (consolidatedTableHead) { // Null check
+                    const th = document.createElement('th');
+                    th.textContent = label;
+                    consolidatedTableHead.appendChild(th);
+                }
             });
 
             // Add rows for each brand
@@ -1118,7 +1167,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     tr.appendChild(td);
                 });
-                consolidatedTableBody.appendChild(tr);
+                if (consolidatedTableBody) consolidatedTableBody.appendChild(tr); // Null check
             });
 
 
@@ -1240,7 +1289,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 best_brand: bestBrandElement.textContent,
                 criteria_labels: criteriaLabels,
                 brand_labels: brandLabels,
-                brand_weights_per_criterion: lastCalculatedBrandWeightsPerCriterion
+                brand_weights_per_criterion: lastCalculatedBrandWeightsPerCriterion,
+                // NEW: Add raw matrices to dataToExport
+                criteria_matrix_raw: currentCriteriaMatrixRaw,
+                brand_matrices_raw: currentBrandMatricesRaw
             };
 
             const response = await fetch('/export_current_excel', {
@@ -1317,7 +1369,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 best_brand: bestBrandElement.textContent,
                 criteria_labels: criteriaLabels,
                 brand_labels: brandLabels,
-                brand_weights_per_criterion: lastCalculatedBrandWeightsPerCriterion // Gửi dữ liệu này!
+                brand_weights_per_criterion: lastCalculatedBrandWeightsPerCriterion, // Gửi dữ liệu này!
+                // NEW: Add raw matrices to dataToExport
+                criteria_matrix_raw: currentCriteriaMatrixRaw,
+                brand_matrices_raw: currentBrandMatricesRaw
             };
 
             // Capture chart images as base64 and their dimensions
@@ -1364,13 +1419,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderPagination(totalPages, currentPage) {
         console.log('Đang render phân trang. Tổng trang:', totalPages, 'Trang hiện tại:', currentPage);
-        historyPagination.innerHTML = '';
+        if (historyPagination) historyPagination.innerHTML = ''; // Null check
 
         if (totalPages <= 1 && historyData.length === 0) { 
-            historyPagination.style.display = 'none';
+            if (historyPagination) historyPagination.style.display = 'none'; // Null check
             return;
         } else {
-            historyPagination.style.display = 'flex';
+            if (historyPagination) historyPagination.style.display = 'flex'; // Null check
         }
 
         const prevItem = document.createElement('li');
@@ -1384,7 +1439,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadHistory();
             }
         });
-        historyPagination.appendChild(prevItem);
+        if (historyPagination) historyPagination.appendChild(prevItem); // Null check
 
         for (let i = 1; i <= totalPages; i++) {
             const li = document.createElement('li');
@@ -1395,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentHistoryPage = i;
                 loadHistory();
             });
-            historyPagination.appendChild(li);
+        if (historyPagination) historyPagination.appendChild(li); // Null check
         }
 
         const nextItem = document.createElement('li');
@@ -1409,11 +1464,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadHistory();
             }
         });
-        historyPagination.appendChild(nextItem);
+        if (historyPagination) historyPagination.appendChild(nextItem); // Null check
     }
 
-    loadHistoryBtn.addEventListener('click', loadHistory);
-    clearHistoryBtn.addEventListener('click', clearHistory);
+    if (loadHistoryBtn) loadHistoryBtn.addEventListener('click', loadHistory); // Null check
+    if (clearHistoryBtn) clearHistoryBtn.addEventListener('click', clearHistory); // Null check
 
     loadHistory();
 
