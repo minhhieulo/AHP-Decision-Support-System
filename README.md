@@ -84,25 +84,7 @@ pip install -r requirements.txt
 
 Nếu bạn không có file requirements.txt, hãy tạo nó bằng cách cài đặt thủ công các thư viện sau và sau đó chạy pip freeze > requirements.txt:
 
-Flask
-
-pymongo
-
-numpy
-
-pandas
-
-openpyxl
-
-xlsxwriter
-
-reportlab
-
-Flask-PyMongo
-
-Flask-Cors (Nếu cần cho môi trường phát triển)
-
-python-dotenv (Nếu bạn dùng để quản lý biến môi trường)
+pip install Flask pymongo numpy pandas openpyxl xlsxwriter reportlab Flask-PyMongo Flask-Cors python-dotenv
 
 Bước 3: Cài Đặt và Khởi Chạy MongoDB
 Ứng dụng này sử dụng MongoDB để lưu trữ dữ liệu.
